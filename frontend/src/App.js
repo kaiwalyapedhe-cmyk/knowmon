@@ -1,55 +1,77 @@
-import { useEffect } from "react";
 import "@/App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import axios from "axios";
-import { HOME } from "@/constants/testIds";
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { Show, SignIn, SignUp } from "@clerk/react";
+import ClerkAuthProvider from "@/components/auth/ClerkAuthProvider";
+import { Toaster } from "@/components/ui/sonner";
+import { MeProvider } from "@/context/MeContext";
+import Layout from "@/components/Layout";
+import Landing from "@/pages/Landing";
+import Dashboard from "@/pages/Dashboard";
+import Interactions from "@/pages/Interactions";
+import InteractionDetail from "@/pages/InteractionDetail";
+import QAForms from "@/pages/QAForms";
+import Coaching from "@/pages/Coaching";
+import Knowledge from "@/pages/Knowledge";
+import Article from "@/pages/Article";
+import Trees from "@/pages/Trees";
+import TreeRunner from "@/pages/TreeRunner";
+import TreeEditor from "@/pages/TreeEditor";
+import Training from "@/pages/Training";
+import Course from "@/pages/Course";
+import Users from "@/pages/Users";
+import Help from "@/pages/Help";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
-
-const Home = () => {
-  const helloWorldApi = async () => {
-    try {
-      const response = await axios.get(`${API}/`);
-      console.log(response.data.message);
-    } catch (e) {
-      console.error(e, `errored out requesting / api`);
-    }
-  };
-
-  useEffect(() => {
-    helloWorldApi();
-  }, []);
-
+function Protected() {
   return (
-    // The marker attribute below lets the platform probe detect the stock splash — remove it with this page
-    <div data-emergent-splash>
-      <header className="App-header">
-        <a
-          data-testid={HOME.emergentLink}
-          className="App-link"
-          href="https://emergent.sh"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src="https://avatars.githubusercontent.com/in/1201222?s=120&u=2686cf91179bbafbc7a71bfbc43004cf9ae1acea&v=4" />
-        </a>
-        <p className="mt-5">Building something incredible ~!</p>
-      </header>
-    </div>
+    <>
+      <Show when="signed-in"><MeProvider><Layout /></MeProvider></Show>
+      <Show when="signed-out"><Navigate to="/sign-in" replace /></Show>
+    </>
   );
-};
+}
+
+function Home() {
+  return (
+    <>
+      <Show when="signed-in"><Navigate to="/dashboard" replace /></Show>
+      <Show when="signed-out"><Landing /></Show>
+    </>
+  );
+}
+
+const AuthPage = ({ children }) => <div className="grid-bg flex min-h-screen items-center justify-center p-4">{children}</div>;
 
 function App() {
   return (
-    <div className="App">
+    <div className="App dark">
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />}>
-            <Route index element={<Home />} />
-          </Route>
-        </Routes>
+        <ClerkAuthProvider>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/sign-in/*" element={<AuthPage><SignIn routing="path" path="/sign-in" signUpUrl="/sign-up" withSignUp /></AuthPage>} />
+            <Route path="/sign-up/*" element={<AuthPage><SignUp routing="path" path="/sign-up" signInUrl="/sign-in" /></AuthPage>} />
+            <Route path="/help" element={<Help />} />
+            <Route path="/help/:id" element={<Help />} />
+            <Route element={<Protected />}>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/interactions" element={<Interactions />} />
+              <Route path="/interactions/:id" element={<InteractionDetail />} />
+              <Route path="/qa-forms" element={<QAForms />} />
+              <Route path="/coaching" element={<Coaching />} />
+              <Route path="/knowledge" element={<Knowledge />} />
+              <Route path="/knowledge/:id" element={<Article />} />
+              <Route path="/trees" element={<Trees />} />
+              <Route path="/trees/:id" element={<TreeRunner />} />
+              <Route path="/trees/:id/edit" element={<TreeEditor />} />
+              <Route path="/training" element={<Training />} />
+              <Route path="/training/:id" element={<Course />} />
+              <Route path="/users" element={<Users />} />
+            </Route>
+            <Route path="*" element={<Outlet />} />
+          </Routes>
+        </ClerkAuthProvider>
       </BrowserRouter>
+      <Toaster theme="dark" richColors position="top-right" />
     </div>
   );
 }
