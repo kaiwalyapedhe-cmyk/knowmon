@@ -467,12 +467,17 @@ def _check_criteria(cal: dict, items: list) -> dict:
     got = {c.id: c for c in items}
     if set(got) != ids:
         raise HTTPException(status_code=400, detail="Score every criterion")
+    for c in cal["criteria"]:
+        if c["type"] == "binary" and got[c["id"]].score not in (0, 100):
+            raise HTTPException(status_code=400, detail=f"'{c['name']}' is pass/fail: use 0 or 100")
     return got
 
 
 def _cal_view(cal: dict, m: dict) -> dict:
     mine = next((s for s in cal["scores"] if s["user_id"] == m["user_id"]), None)
-    reveal = cal["status"] == "closed" or mine is not None or m["user_id"] == cal["created_by"] or m["role"] == "admin"
+    participant = m["user_id"] in cal["participant_ids"]
+    reveal = cal["status"] == "closed" or mine is not None or (
+        not participant and (m["user_id"] == cal["created_by"] or m["role"] == "admin"))
     scores = cal["scores"] if reveal else []
     spread = {}
     if reveal and cal["scores"]:
@@ -549,13 +554,16 @@ async def close_calibration(cid: str, body: CalCloseIn, m: dict = Depends(requir
     overall = _weighted(cal["criteria"], {k: v.score for k, v in got.items()})
     final = {"criteria": [got[c["id"]].model_dump() for c in cal["criteria"]], "overall": overall, "note": body.note.strip(),
              "by": m["user_id"], "by_name": m.get("name", ""), "at": now(), "applied": body.apply_to_interaction}
-    await db.calibrations.update_one({"id": cid}, {"$set": {"status": "closed", "final": final}})
-    if body.apply_to_interaction:
-        it = await get_or_404("interactions", cal["interaction_id"])
+    it = await get_or_404("interactions", cal["interaction_id"]) if body.apply_to_interaction else None
+    res = await db.calibrations.update_one({"id": cid, "status": "open"}, {"$set": {"status": "closed", "final": final}})
+    if res.modified_count == 0:
+        raise HTTPException(status_code=409, detail="Already closed")
+    if it:
+        auto_failed = any(c["auto_fail"] and got[c["id"]].score < 60 for c in cal["criteria"])
         results = [{**c, "score": got[c["id"]].score, "passed": got[c["id"]].score >= 60,
                     "reason": got[c["id"]].note or c.get("reason", "")} if c["id"] in got else c for c in it["criteria_results"]]
         await db.interactions.update_one({"id": it["id"]}, {"$set": {
-            "criteria_results": results, "overall_score": overall, "auto_failed": False, "calibrated_by": cid,
+            "criteria_results": results, "overall_score": 0.0 if auto_failed else overall, "auto_failed": auto_failed, "calibrated_by": cid,
             "original_score": it.get("original_score", it["overall_score"])}})
     return _cal_view(await _get_cal(cid, m), m)
 

@@ -45,7 +45,10 @@ def ldap_authenticate(username: str, password: str) -> dict | None:
     if not username or not password:
         return None
     conn = _service_connection()
-    flt = (os.environ.get("LDAP_USER_FILTER") or DEFAULT_FILTER).replace("{u}", escape_filter_chars(username))
+    flt = os.environ.get("LDAP_USER_FILTER") or DEFAULT_FILTER
+    if "{u}" not in flt:  # a base filter like (objectClass=person): add the username match
+        flt = f"(&{flt}{DEFAULT_FILTER})"
+    flt = flt.replace("{u}", escape_filter_chars(username))
     conn.search(os.environ["LDAP_BASE_DN"], flt, SUBTREE, attributes=["mail", "displayName", "cn", "memberOf"])
     entries = list(conn.entries)
     conn.unbind()

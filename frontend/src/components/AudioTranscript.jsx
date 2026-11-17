@@ -36,11 +36,11 @@ export const AudioTranscript = forwardRef(function AudioTranscript({ interaction
 
   return (
     <div className="card-surface p-6" data-testid="call-playback">
-      <div className="label-mono mb-3">Call recording {interaction.audio_name && `· ${interaction.audio_name}`}</div>
-      {interaction.audio_path ? (
+      <div className="label-mono mb-3">{interaction.audio_path ? `Call recording · ${interaction.audio_name}` : "Conversation"}</div>
+      {interaction.audio_path && (
         src ? <audio ref={audio} src={src} controls className="w-full" onPlay={() => setStarted(true)} onTimeUpdate={(e) => setNow(e.target.currentTime)} data-testid="audio-player" />
           : err ? <p className="text-sm text-red-600">{err}</p> : <div className="flex items-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" />Loading recording…</div>
-      ) : <p className="text-sm text-slate-500">No recording stored for this interaction.</p>}
+      )}
       {segs.length > 0 ? (
         <div className="mt-4 max-h-96 space-y-1 overflow-y-auto pr-2" data-testid="transcript-segments">
           {segs.map((s, i) => {

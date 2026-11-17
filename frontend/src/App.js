@@ -1,5 +1,5 @@
 import "@/App.css";
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Show, SignIn, SignUp } from "@clerk/react";
 import ClerkAuthProvider from "@/components/auth/ClerkAuthProvider";
 import { Toaster } from "@/components/ui/sonner";
@@ -81,7 +81,7 @@ function App() {
               <Route path="/calibration/:id" element={<CalibrationDetail />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
-            <Route path="*" element={<Outlet />} />
+            <Route path="*" element={<div className="flex min-h-screen flex-col items-center justify-center gap-3" data-testid="not-found"><h1 className="text-3xl font-extrabold">Page not found</h1><a href="/" className="text-[#E31E24] hover:underline">Go home</a></div>} />
           </Routes>
         </ClerkAuthProvider>
       </BrowserRouter>

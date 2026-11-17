@@ -33,7 +33,12 @@ FastAPI (server.py routes, core.py roles/db, ai.py LLM+STT, seed.py demo data) +
 - Env: SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, SMTP_FROM, SMTP_SECURITY(starttls|ssl|none); LDAP_URL, LDAP_BASE_DN, LDAP_BIND_DN, LDAP_BIND_PASSWORD, LDAP_USER_FILTER(optional), LDAP_TEAM_LEAD_GROUP_DN
 - Tested: iteration_2 (backend 36/36, UI pass); offline SMTP+LDAP check tests/offline_smtp_ldap_check.py
 
+## Iteration 3 (Jun 2026)
+- Calibration sessions: blind multi-reviewer scoring (staff), side-by-side vs AI with spread, owner agrees standard (prefilled average), optional apply to interaction (auto-fail respected, binary 0/100 only)
+- Agent self-review: timestamped notes at playback time + reflection on own scored calls; visible to staff, pre-fills coaching notes
+- Tested: iteration_3 (backend 100%, blind-reveal bug fixed afterwards)
+
 ## Backlog
 - P1: CRM integrations (Salesforce/Zendesk/Freshdesk), Chrome extension
-- P1: QA calibration sessions; recording retention policy
+- P1: recording retention policy; SMTP + LDAP values pending from user
 - P2: AlertDialog for deletes, calendar picker, embeddable chatbot widget, certificates PDF

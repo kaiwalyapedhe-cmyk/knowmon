@@ -16,7 +16,7 @@ const spreadTone = (v) => (v >= 25 ? "bg-red-100 text-red-700" : v >= 10 ? "bg-a
 function ScoreForm({ cal, initial, label, onSubmit, testPrefix, children }) {
   const [vals, setVals] = useState(() => Object.fromEntries(cal.criteria.map((c) => [c.id, { score: String(initial?.[c.id]?.score ?? ""), note: initial?.[c.id]?.note || "" }])));
   const set = (id, k, v) => setVals({ ...vals, [id]: { ...vals[id], [k]: v } });
-  const valid = cal.criteria.every((c) => vals[c.id].score !== "" && +vals[c.id].score >= 0 && +vals[c.id].score <= 100);
+  const valid = cal.criteria.every((c) => vals[c.id].score !== "" && (c.type === "binary" ? ["0", "100"].includes(String(+vals[c.id].score)) : +vals[c.id].score >= 0 && +vals[c.id].score <= 100));
   return (
     <div className="space-y-3" data-testid={`${testPrefix}-form`}>
       {cal.criteria.map((c) => (
@@ -46,7 +46,7 @@ function Comparison({ cal }) {
               <td className={`py-2.5 font-mono ${scoreColor(c.ai_score)}`} title={c.ai_reason}>{c.ai_score}</td>
               {cal.scores.map((s) => { const x = s.criteria.find((y) => y.id === c.id); return <td key={s.user_id} className={`py-2.5 font-mono ${scoreColor(x.score)}`} title={x.note}>{x.score}</td>; })}
               {cal.final && <td className="py-2.5 font-mono font-bold text-[#1B3F94]">{final[c.id]}</td>}
-              <td className="py-2.5 text-right"><span className={`rounded px-2 py-0.5 font-mono text-xs ${spreadTone(cal.spread[c.id] || 0)}`}>±{cal.spread[c.id] ?? 0}</span></td>
+              <td className="py-2.5 text-right"><span className={`rounded px-2 py-0.5 font-mono text-xs ${spreadTone(cal.spread[c.id] || 0)}`}>Δ{cal.spread[c.id] ?? 0}</span></td>
             </tr>
           ))}
           <tr className="border-t-2 border-slate-300 font-semibold"><td className="py-2.5">Overall</td><td className="py-2.5 font-mono">{cal.ai_overall}</td>
@@ -77,7 +77,8 @@ export default function CalibrationDetail() {
   const mine = Object.fromEntries((cal.scores.find((s) => s.user_id === me.user_id)?.criteria || []).map((c) => [c.id, c]));
   const avg = Object.fromEntries(cal.criteria.map((c) => {
     const v = cal.scores.map((s) => s.criteria.find((x) => x.id === c.id).score);
-    return [c.id, { score: v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : c.ai_score, note: "" }];
+    const mean = v.length ? Math.round(v.reduce((a, b) => a + b, 0) / v.length) : c.ai_score;
+    return [c.id, { score: c.type === "binary" ? (mean >= 50 ? 100 : 0) : mean, note: "" }];
   }));
   const isOwner = cal.created_by === me.user_id || isAdmin;
   const canScore = cal.status === "open" && cal.participant_ids.includes(me.user_id);
