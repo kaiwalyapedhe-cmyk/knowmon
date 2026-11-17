@@ -46,6 +46,7 @@ INDEXES = {
     "digest_logs": [IndexModel([("at", DESCENDING)], name="at_desc")],
     "cron_runs": [IndexModel([("run_id", ASCENDING)], name="run_id", unique=True)],
     "ldap_failures": [IndexModel([("username", ASCENDING), ("at", DESCENDING)], name="user_at")],
+    "calibrations": [IndexModel([("id", ASCENDING)], name="id", unique=True)],
     "coaching": [IndexModel([("id", ASCENDING)], name="id", unique=True), IndexModel([("agent_id", ASCENDING)], name="agent_id")],
 }
 
@@ -274,8 +275,11 @@ def _read_sheet(filename: str, data: bytes) -> list:
 
 @api.post("/interactions/bulk-sheet")
 async def bulk_sheet(file: UploadFile = File(...), form_id: str = Form(""), m: dict = Depends(require_role(*STAFF))):
+    data = await file.read(10 * 1024 * 1024 + 1)
+    if len(data) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Spreadsheet must be under 10 MB")
     try:
-        rows = _read_sheet(file.filename or "", await file.read())
+        rows = _read_sheet(file.filename or "", data)
     except HTTPException:
         raise
     except Exception:
@@ -285,6 +289,8 @@ async def bulk_sheet(file: UploadFile = File(...), form_id: str = Form(""), m: d
     if len(rows) > 200:
         raise HTTPException(status_code=400, detail="Up to 200 rows per import")
     forms = await db.qa_forms.find({}, {"_id": 0}).to_list(200)
+    if not forms:
+        raise HTTPException(status_code=400, detail="Create a QA form first")
     by_key = {f["id"]: f for f in forms} | {f["name"].strip().lower(): f for f in forms}
     people = {p["email"].lower(): p for p in await db.users.find({**IN_ENV, "email": {"$nin": [None, ""]}}, {"_id": 0}).to_list(2000)}
     batch_id, created, errors = new_id(), 0, []
@@ -335,13 +341,19 @@ async def raise_dispute(iid: str, body: DisputeIn, m: dict = Depends(current_mem
     doc = await get_or_404("interactions", iid, {"agent_id": m["user_id"]})
     if doc["status"] != "scored":
         raise HTTPException(status_code=400, detail="Only scored interactions can be disputed")
-    if (doc.get("dispute") or {}).get("status") == "open":
+    previous = doc.get("dispute") or {}
+    if previous.get("status") == "open":
         raise HTTPException(status_code=409, detail="A dispute is already open")
+    if len(doc.get("dispute_history", [])) >= 2:
+        raise HTTPException(status_code=409, detail="This score has already been reviewed twice")
     valid = {c["id"] for c in doc.get("criteria_results", [])}
     dispute = {"status": "open", "reason": body.reason.strip(), "criterion_ids": [c for c in body.criterion_ids if c in valid],
                "raised_by": m["user_id"], "raised_by_name": m.get("name", ""), "raised_at": now(),
                "score_at_dispute": doc["overall_score"]}
-    await db.interactions.update_one({"id": iid}, {"$set": {"dispute": dispute}})
+    update = {"$set": {"dispute": dispute}}
+    if previous:
+        update["$push"] = {"dispute_history": previous}
+    await db.interactions.update_one({"id": iid}, update)
     return dispute
 
 
@@ -387,7 +399,7 @@ async def get_interaction(iid: str, m: dict = Depends(current_member)):
 @api.post("/interactions/{iid}/rescore")
 async def rescore(iid: str, m: dict = Depends(require_role(*STAFF))):
     await get_or_404("interactions", iid)
-    await db.interactions.update_one({"id": iid}, {"$set": {"status": "scoring", "error": ""}})
+    await db.interactions.update_one({"id": iid}, {"$set": {"status": "scoring", "error": ""}, "$unset": {"original_score": ""}})
     spawn(process_interaction(iid, None))
     return {"ok": True}
 
@@ -397,6 +409,155 @@ async def delete_interaction(iid: str, m: dict = Depends(require_role(*QA))):
     if (await db.interactions.delete_one({"id": iid})).deleted_count == 0:
         raise HTTPException(status_code=404, detail="Not found")
     return {"ok": True}
+
+
+# ---------- Agent self-review ----------
+class TimedNote(BaseModel):
+    t: float = Field(0, ge=0)
+    text: str = Field(min_length=1, max_length=1000)
+
+
+class SelfReviewIn(BaseModel):
+    reflection: str = Field("", max_length=4000)
+    notes: List[TimedNote] = Field([], max_length=100)
+
+
+@api.put("/interactions/{iid}/self-review")
+async def save_self_review(iid: str, body: SelfReviewIn, m: dict = Depends(current_member)):
+    doc = await get_or_404("interactions", iid, {"agent_id": m["user_id"]})
+    if doc["status"] != "scored":
+        raise HTTPException(status_code=400, detail="You can review a call once it is scored")
+    review = {"reflection": body.reflection.strip(), "notes": sorted([n.model_dump() for n in body.notes], key=lambda n: n["t"]),
+              "updated_at": now()}
+    await db.interactions.update_one({"id": iid}, {"$set": {"self_review": review}})
+    return review
+
+
+# ---------- Calibration ----------
+class CalibrationIn(BaseModel):
+    interaction_id: str
+    title: str = ""
+    participant_ids: List[str] = Field(min_length=1)
+    due: str = ""
+
+
+class CritScore(BaseModel):
+    id: str
+    score: float = Field(ge=0, le=100)
+    note: str = Field("", max_length=1000)
+
+
+class CalScoreIn(BaseModel):
+    criteria: List[CritScore]
+
+
+class CalCloseIn(BaseModel):
+    criteria: List[CritScore]
+    note: str = Field("", max_length=3000)
+    apply_to_interaction: bool = False
+
+
+def _weighted(form_criteria: list, scores: dict) -> float:
+    tw = sum(float(c.get("weight", 1)) for c in form_criteria)
+    return round(sum(scores.get(c["id"], 0) * float(c.get("weight", 1)) for c in form_criteria) / tw, 1) if tw else 0
+
+
+def _check_criteria(cal: dict, items: list) -> dict:
+    ids = {c["id"] for c in cal["criteria"]}
+    got = {c.id: c for c in items}
+    if set(got) != ids:
+        raise HTTPException(status_code=400, detail="Score every criterion")
+    return got
+
+
+def _cal_view(cal: dict, m: dict) -> dict:
+    mine = next((s for s in cal["scores"] if s["user_id"] == m["user_id"]), None)
+    reveal = cal["status"] == "closed" or mine is not None or m["user_id"] == cal["created_by"] or m["role"] == "admin"
+    scores = cal["scores"] if reveal else []
+    spread = {}
+    if reveal and cal["scores"]:
+        for c in cal["criteria"]:
+            vals = [x["score"] for s in cal["scores"] for x in s["criteria"] if x["id"] == c["id"]]
+            spread[c["id"]] = round(max(vals + [c["ai_score"]]) - min(vals + [c["ai_score"]]), 1)
+    return {**cal, "scores": scores, "revealed": reveal, "submitted": mine is not None,
+            "submitted_count": len(cal["scores"]), "spread": spread}
+
+
+@api.get("/calibrations")
+async def list_calibrations(m: dict = Depends(require_role(*STAFF))):
+    q = {} if m["role"] == "admin" else {"$or": [{"created_by": m["user_id"]}, {"participant_ids": m["user_id"]}]}
+    cals = await db.calibrations.find(q, {"_id": 0}).sort("created_at", -1).to_list(300)
+    return [_cal_view(c, m) for c in cals]
+
+
+@api.post("/calibrations")
+async def create_calibration(body: CalibrationIn, m: dict = Depends(require_role(*STAFF))):
+    it = await get_or_404("interactions", body.interaction_id)
+    if it["status"] != "scored":
+        raise HTTPException(status_code=400, detail="Pick a scored interaction")
+    people = await db.users.find({"user_id": {"$in": body.participant_ids}, **IN_ENV}, {"_id": 0}).to_list(100)
+    staff = [p for p in people if effective_role(p.get("role")) in STAFF]
+    if len(staff) != len(set(body.participant_ids)):
+        raise HTTPException(status_code=400, detail="Participants must be team leads, QA auditors or admins")
+    doc = {"id": new_id(), "interaction_id": it["id"], "agent_name": it["agent_name"], "channel": it["channel"],
+           "title": body.title.strip() or f"Calibrate {it['agent_name']} · {it['form_name']}", "due": body.due,
+           "participant_ids": [p["user_id"] for p in staff], "participant_names": [p.get("name", "") for p in staff],
+           "criteria": [{"id": c["id"], "name": c["name"], "weight": c["weight"], "type": c["type"], "auto_fail": c.get("auto_fail", False),
+                         "ai_score": c["score"], "ai_reason": c.get("reason", "")} for c in it["criteria_results"]],
+           "ai_overall": it["overall_score"], "status": "open", "scores": [], "final": None,
+           "created_by": m["user_id"], "created_by_name": m.get("name", ""), "created_at": now()}
+    await db.calibrations.insert_one(dict(doc))
+    return _cal_view(doc, m)
+
+
+async def _get_cal(cid: str, m: dict) -> dict:
+    cal = await get_or_404("calibrations", cid)
+    if m["role"] != "admin" and m["user_id"] != cal["created_by"] and m["user_id"] not in cal["participant_ids"]:
+        raise HTTPException(status_code=404, detail="Not found")
+    return cal
+
+
+@api.get("/calibrations/{cid}")
+async def get_calibration(cid: str, m: dict = Depends(require_role(*STAFF))):
+    return _cal_view(await _get_cal(cid, m), m)
+
+
+@api.post("/calibrations/{cid}/score")
+async def score_calibration(cid: str, body: CalScoreIn, m: dict = Depends(require_role(*STAFF))):
+    cal = await _get_cal(cid, m)
+    if cal["status"] != "open":
+        raise HTTPException(status_code=409, detail="This session is closed")
+    if m["user_id"] not in cal["participant_ids"]:
+        raise HTTPException(status_code=403, detail="You are not a participant")
+    got = _check_criteria(cal, body.criteria)
+    entry = {"user_id": m["user_id"], "name": m.get("name", ""), "submitted_at": now(),
+             "criteria": [got[c["id"]].model_dump() for c in cal["criteria"]],
+             "overall": _weighted(cal["criteria"], {k: v.score for k, v in got.items()})}
+    await db.calibrations.update_one({"id": cid}, {"$pull": {"scores": {"user_id": m["user_id"]}}})
+    await db.calibrations.update_one({"id": cid}, {"$push": {"scores": entry}})
+    return _cal_view(await _get_cal(cid, m), m)
+
+
+@api.post("/calibrations/{cid}/close")
+async def close_calibration(cid: str, body: CalCloseIn, m: dict = Depends(require_role(*STAFF))):
+    cal = await _get_cal(cid, m)
+    if cal["status"] != "open":
+        raise HTTPException(status_code=409, detail="Already closed")
+    if m["user_id"] != cal["created_by"] and m["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Only the session owner can close it")
+    got = _check_criteria(cal, body.criteria)
+    overall = _weighted(cal["criteria"], {k: v.score for k, v in got.items()})
+    final = {"criteria": [got[c["id"]].model_dump() for c in cal["criteria"]], "overall": overall, "note": body.note.strip(),
+             "by": m["user_id"], "by_name": m.get("name", ""), "at": now(), "applied": body.apply_to_interaction}
+    await db.calibrations.update_one({"id": cid}, {"$set": {"status": "closed", "final": final}})
+    if body.apply_to_interaction:
+        it = await get_or_404("interactions", cal["interaction_id"])
+        results = [{**c, "score": got[c["id"]].score, "passed": got[c["id"]].score >= 60,
+                    "reason": got[c["id"]].note or c.get("reason", "")} if c["id"] in got else c for c in it["criteria_results"]]
+        await db.interactions.update_one({"id": it["id"]}, {"$set": {
+            "criteria_results": results, "overall_score": overall, "auto_failed": False, "calibrated_by": cid,
+            "original_score": it.get("original_score", it["overall_score"])}})
+    return _cal_view(await _get_cal(cid, m), m)
 
 
 # ---------- Dashboard ----------

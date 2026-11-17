@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useApi, errMsg } from "@/lib/api";
 import { CHANNELS, Field, NativeSelect } from "@/components/common";
 
-const TEMPLATE = 'agent_name,agent_email,channel,customer_name,form,transcript\nPriya Sharma,,chat,Ravi,Chat Email & WhatsApp QA,"Agent: Hello, how can I help?\nCustomer: I need a refund."\n';
+const TEMPLATE = 'agent_name,agent_email,channel,customer_name,form,transcript\nPriya Sharma,,chat,Ravi,"Chat, Email & WhatsApp QA","Agent: Hello, how can I help?\nCustomer: I need a refund."\n';
 
 function downloadTemplate() {
   const url = URL.createObjectURL(new Blob([TEMPLATE], { type: "text/csv" }));
@@ -29,7 +29,7 @@ export function BulkImportDialog({ open, onOpenChange, onDone }) {
   const [result, setResult] = useState(null);
   useEffect(() => {
     if (!open) return;
-    setResult(null);
+    setResult(null); setSheet(null); setFiles([]);
     api.get("/qa-forms").then((r) => { setForms(r.data); setF((p) => ({ ...p, form_id: p.form_id || r.data[0]?.id || "" })); });
     api.get("/people").then((r) => setPeople(r.data));
   }, [open, api]);

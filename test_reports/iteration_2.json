@@ -1,0 +1,51 @@
+{
+  "summary": "Iteration 2: tested the new features (call playback, bulk import, score disputes, daily QA digest + cron, LDAP config/login + LDAP JWT sessions), plus a backend regression run, the offline SMTP+LDAP check and UI E2E as admin, agent and an LDAP-session user. Backend: new suite 15/15 passed. Regression suite 20/21 passed at first; the one failure was an outdated test (the coaching test used an unknown agent_id, which the API now correctly rejects with 400). After fixing the test it is 21/21. Offline SMTP/LDAP check passed (LDAP bind ok, wrong password rejected, team-lead group lookup ok, digest delivered to a local aiosmtpd). UI checks that worked: company-login link hidden on the landing and sign-in pages; /ldap-login shows the disabled note and its submit stays disabled; the LDAP localStorage session shows the user's name, AGENT role and the sign-out button (ldap-sign-out-btn), signs out back to '/', and a forged token sends the user to /ldap-login; Clerk ticket sign-in works for admin and agent. Interaction detail shows the audio player and 10 timestamped segments; clicking a segment seeks and plays and highlights the active line; flag-quote-0 seeks to the matching segment. The open-dispute icon shows in the interactions list. Bulk import works: template download, CSV import gives '1 queued + Row 3: Unknown channel', the Recordings tab shows its fields, and an agent sees no bulk button. On the Disputes page the open/resolved/all tabs and row links work. The seeded dispute 68b74230 was settled through the UI (accepted with new score 88): score 88 with 76.7 crossed out, outcome text correct, agent sees it under Resolved. Digest & Directory shows SMTP/LDAP 'not set up', the recipient list (temporary TEST team lead), the preview iframe, and 'Send now' gives a 'SMTP is not configured' error toast and a new failed log entry. Found and fixed one front-end bug in AudioTranscript (race condition when loading the audio). Found one backend logic bug in the digest's day window (not fixed, reported below).",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "digest.build_digest (GET /api/digest/preview, POST /api/digest/send, cron)", "issue": "Picks 'today' by comparing text strings that are in different time zones: start=datetime.combine(day,time.min,IST).isoformat() -> '2026-11-17T00:00:00+05:30', but created_at is stored in UTC ('...+00:00'). Text comparison ignores the offset, so interactions created 00:00-05:30 IST are left out of the digest. If the preview is opened after 00:00 UTC, early-morning items from the next IST day are counted in. Verified with a python repro. Fix: compare UTC values: s=start.astimezone(timezone.utc).isoformat(); e=(start+timedelta(days=1)).astimezone(timezone.utc).isoformat().", "priority": "HIGH"}
+    ],
+    "minor": [
+      {"endpoint": "POST /api/interactions/{id}/dispute", "issue": "After a dispute is settled the agent can raise a new one on the same interaction with no limit. The new one replaces the 'dispute' sub-document, so the earlier decision, note and who resolved it are lost (no history kept). Consider a disputes[] history and/or a limit of one re-raise."},
+      {"endpoint": "POST /api/interactions/{id}/dispute/resolve", "issue": "Accepting with a new score changes overall_score but not criteria_results, so the rubric (and the dashboard's per-criterion averages) no longer match the overall score. A later /rescore overwrites the agreed score and leaves original_score stale."},
+      {"endpoint": "POST /api/interactions/bulk-sheet", "issue": "No limit on file size (the whole upload is read into memory before the 200-row check). If there are no QA forms, forms[0] raises IndexError and returns 500. The '(body or {}).get' in /api/cron/digest returns 500 if the JSON body is a list."},
+      {"endpoint": "DELETE /api/interactions/{id}", "issue": "The stored recording (audio_path) is never removed from object storage, so recordings are left behind."},
+      {"endpoint": "core.auth_user (LDAP JWT)", "issue": "jwt.decode does not require 'exp'/'sub' (options={'require':['exp','sub']}), so a correctly signed token without an exp claim would never expire. Also, an LDAP user with no 'mail' attribute is saved with email '' and current_member then calls the Clerk profile API with the ldap_ id (500)."},
+      {"endpoint": "GET /api/interactions/{id}/audio", "issue": "Returns the whole file with no Range/Accept-Ranges support. This is fine for the current blob-URL player but will break seeking if the URL is ever used directly as <audio src>."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "AudioTranscript", "issue": "FIXED by testing agent. The audio-loading effect had no cancel flag, so under React StrictMode two fetches ran and src was swapped from blob1 to blob2 while the page was already showing. Clicking a segment in that window reset currentTime to 0 and threw an uncaught 'play() request was interrupted by a new load request', which showed the Emergent error overlay and blocked clicks. Fix: added a cancelled flag in the effect plus play()?.catch(). Re-tested: an immediate segment click seeks to 11.3s and plays, with no page errors.", "selector": "[data-testid=transcript-segment-N]", "priority": "HIGH"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Interaction detail / transcript", "issues": ["Segment 0 is highlighted as active before playback starts (now=0 matches the first segment); only highlight while the audio is playing or after a seek"]},
+      {"screen": "Bulk import dialog", "issues": ["Template CSV uses form 'Chat Email & WhatsApp QA', but the real form name is 'Chat, Email & WhatsApp QA'. It only works because the code falls back to the chat-channel form. Fix the template name.", "After an import, the chosen file and the result stay visible; consider resetting them or offering a 'View batch' link"]},
+      {"screen": "Digest & Directory", "issues": ["Links inside the preview iframe (srcDoc) open inside the iframe; add <base target=\"_blank\"> or sandbox them", "Team leads can call /digest/preview but the page shows 'Admins only' to them (fine if intended)"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_iter2_features.py", "/app/backend/tests/test_cadence_api.py", "/app/backend/tests/ldap_ui_session.py", "/app/test_reports/pytest/pytest_iter2.xml", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Fix the digest day window: convert the IST start and end to UTC before comparing them with created_at (digest.py build_digest)",
+    "Decide on dispute re-raise behaviour and keep a dispute history instead of overwriting it",
+    "Fix the bulk template's form name ('Chat, Email & WhatsApp QA')",
+    "Add 'require exp' to LDAP JWT decoding; handle LDAP users with no mail attribute",
+    "Guard against forms[0] when there are no forms, cap the bulk-sheet upload size, and remove stored recordings when an interaction is deleted",
+    "Optional: don't highlight segment 0 before playback; set target=_blank on links in the digest preview"
+  ],
+  "critical_code_review_comments": [
+    "digest.py: comparing ISO date strings with mixed time-zone offsets is wrong (see backend critical)",
+    "server.py is 877 lines (>700); split interactions/bulk/disputes into their own router modules",
+    "AudioTranscript: the audio-fetch effect needed a cancel flag (fixed); play() promise rejections must be caught",
+    "bulk_audio stores each file to object storage one after another inside the request (up to 50 x 25 MB), which may hit the ingress timeout; consider streaming to a background job",
+    "process_interaction: if the interaction is deleted while queued, doc is None and an AttributeError is logged (harmless but noisy)"
+  ],
+  "updated_files": ["/app/frontend/src/components/AudioTranscript.jsx", "/app/backend/tests/test_cadence_api.py", "/app/backend/tests/test_iter2_features.py", "/app/backend/tests/ldap_ui_session.py"],
+  "success_rate": {"backend": "100% (36/36 after the test fix; 1 logic bug in the digest date window found by code review and repro)", "frontend": "95% (1 playback bug found and fixed)"},
+  "test_credentials": "/app/memory/test_credentials.md; tokens/tickets via `python tests/make_test_users.py --ticket` (tickets are single-use, rerun before each UI session)",
+  "seed_data_creation": "None kept. Temporary TEST_ users (team_lead, ldap_*) and TEST_ interactions were deleted by id. The seeded open dispute on 68b74230 was settled as requested (accepted, new score 88, note 'TEST_ verification was done at 0:08'), so it is now resolved with original_score 76.7. A few digest_logs/cron_runs entries from send tests remain (failed: SMTP not configured).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run `pytest tests/test_iter2_features.py -n 2` (pytest.ini forces xdist; use -n 0 for serial, NOT -p no:xdist). /tmp/call.mp3 is the 18s TTS call used for audio tests. For an LDAP UI session: `python tests/ldap_ui_session.py create` -> /tmp/ldap_tok.txt -> set localStorage cadence_ldap_token; afterwards run `delete`. The seeded interaction 68b74230 dispute is now resolved; to test the resolve UI again, have the agent raise a new dispute first. SMTP/LDAP are still not configured.",
+  "rca of the issue": "Playback seek reset: React StrictMode runs effects twice; the first fetch's cleanup ran before the blob arrived (url was ''), so both fetches called setSrc. The second blob replaced the src, which reloaded the media element, cancelled the pending play() (unhandled rejection) and reset currentTime to 0. Repro: open the interaction, click a segment within about 1-3s of the player appearing. Fix applied: cancelled flag plus play().catch."
+}

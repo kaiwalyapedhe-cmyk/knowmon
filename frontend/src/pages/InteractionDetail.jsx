@@ -9,6 +9,7 @@ import { useMe } from "@/context/MeContext";
 import { ChannelTag, fmtDate, scoreColor } from "@/components/common";
 import { AudioTranscript } from "@/components/AudioTranscript";
 import { DisputePanel } from "@/components/DisputePanel";
+import { SelfReviewPanel } from "@/components/SelfReviewPanel";
 
 function List({ icon: Icon, title, items, color, testId }) {
   return (
@@ -96,11 +97,13 @@ export default function InteractionDetail() {
               <div className="label-mono mb-3 flex items-center gap-2"><BookOpen className="h-4 w-4 text-[#1B3F94]" />Recommended knowledge</div>
               {articles.length ? articles.map((a) => <Link key={a.id} to={`/knowledge/${a.id}`} className="block py-1 text-sm text-[#1B3F94] hover:text-[#1B3F94]">{a.title} →</Link>) : <p className="text-sm text-slate-500">None</p>}
             </div>
+            {isStaff && <Button variant="outline" className="w-full hover:text-[#1B3F94]" data-testid="calibrate-interaction-btn" onClick={() => nav(`/calibration?from=${it.id}`)}>Start calibration session</Button>}
             {isStaff && <Button className="w-full" data-testid="create-coaching-from-interaction-btn" onClick={() => nav(`/coaching?from=${it.id}`)}>Create coaching session</Button>}
           </div>
         </div>
       </>)}
       {(it.transcript || it.audio_path) && <AudioTranscript ref={player} interaction={it} />}
+      {it.status === "scored" && <SelfReviewPanel it={it} player={player} onSaved={load} />}
       {it.status === "scored" && <DisputePanel it={it} onChange={load} />}
     </div>
   );

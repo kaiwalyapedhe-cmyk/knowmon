@@ -321,7 +321,7 @@ class TestCoaching:
         body = {"agent_id": AGENT_ID, "agent_name": "Arjun Agent", "interaction_id": "sample-2", "focus": "TEST_Verification",
                 "action_items": [{"text": "Verify first"}, {"text": "Read kb"}], "article_ids": ["kb-refund"], "course_ids": ["course-onboarding"]}
         c = admin.post(f"{BASE_URL}/api/coaching", json=body).json()
-        other = admin.post(f"{BASE_URL}/api/coaching", json={**body, "agent_id": "someone-else", "agent_name": "TEST_Other"}).json()
+        other = admin.post(f"{BASE_URL}/api/coaching", json={**body, "agent_id": "", "agent_name": "TEST_Other"}).json()  # unknown agent_id now 400 (validated)
         try:
             mine = agent.get(f"{BASE_URL}/api/coaching").json()
             assert any(x["id"] == c["id"] for x in mine) and all(x["agent_id"] == AGENT_ID for x in mine)

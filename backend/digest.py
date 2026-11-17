@@ -1,7 +1,7 @@
 import hmac
 import html
 import os
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -37,7 +37,8 @@ async def recipients() -> list:
 async def build_digest(base_url: str) -> dict:
     day = datetime.now(IST).date()
     start = datetime.combine(day, time.min, IST)
-    q = {"status": "scored", "created_at": {"$gte": start.isoformat(), "$lt": (start + timedelta(days=1)).isoformat()}}
+    q = {"status": "scored", "created_at": {"$gte": start.astimezone(timezone.utc).isoformat(),
+                                            "$lt": (start + timedelta(days=1)).astimezone(timezone.utc).isoformat()}}
     items = await db.interactions.find(q, {"_id": 0, "transcript": 0, "segments": 0}).to_list(5000)
     n = len(items)
     avg = round(sum(i["overall_score"] for i in items) / n, 1) if n else 0
@@ -58,7 +59,7 @@ async def build_digest(base_url: str) -> dict:
         f"<li style='margin-bottom:6px'><b style='color:#E31E24'>{e(f.get('severity', '').upper())}</b> · {e(f['agent'])}: {e(f.get('issue', ''))} "
         f"<a href='{link(f['id'])}' style='color:#1B3F94'>review</a></li>" for f in flags[:20]) or "<li>No compliance flags today.</li>"
     kpi = lambda label, val: f"<td style='padding:12px;background:#F4F6FB;border-radius:8px'><div style='font-size:11px;color:#E31E24;font-weight:700;letter-spacing:2px;text-transform:uppercase'>{label}</div><div style='font-size:22px;color:#16357F;font-weight:800'>{val}</div></td>"  # noqa: E731
-    body = f"""<div style="font-family:Arial,sans-serif;max-width:640px;margin:auto;color:#1E293B">
+    body = f"""<base target="_blank"><div style="font-family:Arial,sans-serif;max-width:640px;margin:auto;color:#1E293B">
 <div style="background:#1B3F94;padding:20px 24px;border-bottom:5px solid #E31E24"><span style="color:#fff;font-size:22px;font-weight:800">Cadence</span><span style="color:#FF5A5F;font-size:22px;font-weight:800">CX</span>
 <div style="color:#C7D2FE;font-size:12px;margin-top:4px">Daily QA digest · {day.strftime('%d %B %Y')}</div></div>
 <div style="padding:24px"><table cellspacing="8" style="width:100%"><tr>{kpi('Evaluated', n)}{kpi('Avg score', f'{avg}%')}{kpi('Auto-fails', auto_fails)}{kpi('Open disputes', open_disputes)}</tr></table>
@@ -101,7 +102,9 @@ async def cron_digest(request: Request):
         body = await request.json()
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid body")
-    run_id = request.headers.get("x-webhook-id") or (body or {}).get("run_id")
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="Invalid body")
+    run_id = request.headers.get("x-webhook-id") or body.get("run_id")
     if not run_id:
         raise HTTPException(status_code=400, detail="Missing run id")
     res = await db.cron_runs.update_one({"run_id": run_id}, {"$setOnInsert": {"run_id": run_id, "job": "digest", "at": now()}}, upsert=True)

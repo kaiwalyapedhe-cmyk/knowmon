@@ -1,6 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { UserButton } from "@clerk/react";
-import { Scale, Settings as SettingsIcon, LogOut, BarChart3, BookOpen, GitBranch, GraduationCap, Headphones, ClipboardCheck, Users, MessageSquareHeart, Globe } from "lucide-react";
+import { Scale, Users2, Settings as SettingsIcon, LogOut, BarChart3, BookOpen, GitBranch, GraduationCap, Headphones, ClipboardCheck, Users, MessageSquareHeart, Globe } from "lucide-react";
 import { useMe, ROLE_LABELS } from "@/context/MeContext";
 import { setLdapToken } from "@/lib/api";
 
@@ -11,6 +11,7 @@ const NAV = [
     { to: "/qa-forms", label: "QA Forms", icon: ClipboardCheck, qa: true },
     { to: "/coaching", label: "Coaching", icon: MessageSquareHeart },
     { to: "/disputes", label: "Disputes", icon: Scale },
+    { to: "/calibration", label: "Calibration", icon: Users2, staff: true },
   ]},
   { group: "Knowledge", items: [
     { to: "/knowledge", label: "Knowledge Hub", icon: BookOpen },
@@ -35,8 +36,8 @@ function NavItem({ item }) {
 }
 
 export default function Layout() {
-  const { me, isQA, isAdmin } = useMe();
-  const groups = NAV.filter((g) => !g.admin || isAdmin).map((g) => ({ ...g, items: g.items.filter((i) => !i.qa || isQA) }));
+  const { me, isQA, isAdmin, isStaff } = useMe();
+  const groups = NAV.filter((g) => !g.admin || isAdmin).map((g) => ({ ...g, items: g.items.filter((i) => (!i.qa || isQA) && (!i.staff || isStaff)) }));
   return (
     <div className="flex min-h-screen bg-[#F4F6FB]">
       <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-slate-200 bg-white p-4 lg:flex">

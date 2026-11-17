@@ -127,7 +127,8 @@ export default function Coaching() {
     api.get(`/interactions/${from}`).then(({ data: it }) => {
       setEditing({ ...blank, agent_id: it.agent_id, agent_name: it.agent_name, interaction_id: it.id,
         focus: [...(it.criteria_results || [])].sort((a, b) => a.score - b.score).filter((c) => !c.passed).slice(0, 2).map((c) => c.name).join(" & ") || "Quality improvement",
-        notes: it.summary || "", action_items: (it.improvements || []).map((t) => ({ text: t, done: false })), article_ids: it.recommended_article_ids || [] });
+        notes: [it.summary, it.self_review?.reflection && `Agent's self-review: ${it.self_review.reflection}`,
+          ...(it.self_review?.notes || []).map((n) => `• ${Math.floor(n.t / 60)}:${String(Math.floor(n.t % 60)).padStart(2, "0")} — ${n.text}`)].filter(Boolean).join("\n"), action_items: (it.improvements || []).map((t) => ({ text: t, done: false })), article_ids: it.recommended_article_ids || [] });
       setParams({}, { replace: true });
     });
   }, [params, api, isStaff, setParams]);

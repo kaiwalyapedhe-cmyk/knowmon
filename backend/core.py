@@ -67,7 +67,8 @@ def auth_user(request: Request) -> dict:
             raise HTTPException(status_code=401, detail="Invalid session")
         if header.get("alg") == "HS256":
             try:
-                claims = jwt.decode(token, secret, algorithms=["HS256"], issuer=LDAP_ISSUER)
+                claims = jwt.decode(token, secret, algorithms=["HS256"], issuer=LDAP_ISSUER,
+                                    options={"require": ["exp", "sub", "iss"]})
             except jwt.PyJWTError:
                 raise HTTPException(status_code=401, detail="Invalid or expired session")
             return {"user_id": claims["sub"], "ldap": True}
@@ -99,7 +100,9 @@ async def current_member(user: dict = Depends(auth_user)) -> dict:
     member = await db.users.find_one({"user_id": uid}, {"_id": 0})
     if user.get("ldap") and (member is None or member.get("disabled")):
         raise HTTPException(status_code=401, detail="Session no longer valid")
-    if member is None or not member.get("role") or not member.get("email"):
+    if user.get("ldap"):
+        pass  # LDAP profiles are written at login; never look them up in Clerk
+    elif member is None or not member.get("role") or not member.get("email"):
         prof = await run_in_threadpool(_clerk_profile, uid)
         role = "admin" if prof["is_admin"] else DEFAULT_ROLE
         await db.users.update_one({"user_id": uid, "role": {"$in": [None, ""]}}, {"$set": {"role": role}})

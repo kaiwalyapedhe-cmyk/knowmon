@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Loader2, Upload, Scale } from "lucide-react";
+import { Plus, Loader2, Upload, Scale, NotebookPen } from "lucide-react";
 import { BulkImportDialog } from "@/components/BulkImportDialog";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -130,6 +130,7 @@ export default function Interactions() {
                   <td className="p-4">{i.compliance_flags?.length ? <span className="text-red-600">{i.compliance_flags.length}</span> : <span className="text-slate-600">0</span>}</td>
                   <td className="p-4 text-xs text-slate-500">{fmtDate(i.created_at)}</td>
                   <td className="p-4 text-right" data-testid={`interaction-status-${i.id}`}>
+                    {i.self_review && <NotebookPen className="mr-2 inline h-3.5 w-3.5 text-[#1B3F94]" data-testid={`interaction-self-reviewed-${i.id}`} />}
                     {i.dispute?.status === "open" && <Scale className="mr-2 inline h-3.5 w-3.5 text-amber-600" data-testid={`interaction-dispute-icon-${i.id}`} />}
                     {i.status === "scored" ? <ScoreBadge score={i.overall_score} autoFailed={i.auto_failed} />
                       : i.status === "failed" ? <span className="text-xs text-red-600">Failed</span>

@@ -24,6 +24,8 @@ import Help from "@/pages/Help";
 import Disputes from "@/pages/Disputes";
 import Settings from "@/pages/Settings";
 import LdapLogin from "@/pages/LdapLogin";
+import Calibrations from "@/pages/Calibrations";
+import CalibrationDetail from "@/pages/CalibrationDetail";
 import { ldapToken } from "@/lib/api";
 
 function Protected() {
@@ -75,6 +77,8 @@ function App() {
               <Route path="/training/:id" element={<Course />} />
               <Route path="/users" element={<Users />} />
               <Route path="/disputes" element={<Disputes />} />
+              <Route path="/calibration" element={<Calibrations />} />
+              <Route path="/calibration/:id" element={<CalibrationDetail />} />
               <Route path="/settings" element={<Settings />} />
             </Route>
             <Route path="*" element={<Outlet />} />

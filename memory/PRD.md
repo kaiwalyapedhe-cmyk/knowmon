@@ -24,7 +24,16 @@ FastAPI (server.py routes, core.py roles/db, ai.py LLM+STT, seed.py demo data) +
 - Users & Roles admin page
 - Tested: iteration_1 100% backend + frontend
 
+## Iteration 2 (Jun 2026)
+- Call playback: recordings stored in Emergent Object Storage, timestamped Whisper segments, click-to-seek transcript, flag quotes jump to moment
+- Bulk import: CSV/XLSX (≤200 rows) and up to 50 recordings per batch; AI scoring max 3 concurrent
+- Score disputes: agent raises (max 2 reviews), staff accept with new score / reject; /disputes page; history kept
+- Daily QA digest: platform cron 8pm Asia/Kolkata → /api/cron/digest → SMTP email to team leads (app role + LDAP group); preview / send-now / logs on Digest & Directory page
+- LDAP: company sign-in (12h HS256 session, lockout after 5 failures) alongside Clerk; team lead group → role + digest recipients
+- Env: SMTP_HOST, SMTP_PORT, SMTP_USERNAME, SMTP_PASSWORD, SMTP_FROM, SMTP_SECURITY(starttls|ssl|none); LDAP_URL, LDAP_BASE_DN, LDAP_BIND_DN, LDAP_BIND_PASSWORD, LDAP_USER_FILTER(optional), LDAP_TEAM_LEAD_GROUP_DN
+- Tested: iteration_2 (backend 36/36, UI pass); offline SMTP+LDAP check tests/offline_smtp_ldap_check.py
+
 ## Backlog
-- P1: persist call audio (object storage) + player with timestamped transcript; bulk/CSV import of interactions; CRM integrations (Salesforce/Zendesk/Freshdesk), Chrome extension
-- P1: QA calibration / dispute workflow; scheduled daily digest email
+- P1: CRM integrations (Salesforce/Zendesk/Freshdesk), Chrome extension
+- P1: QA calibration sessions; recording retention policy
 - P2: AlertDialog for deletes, calendar picker, embeddable chatbot widget, certificates PDF
