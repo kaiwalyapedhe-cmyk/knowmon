@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { AlertTriangle, ArrowLeft, BookOpen, CheckCircle2, Loader2, RefreshCw, ThumbsUp, Wrench, XCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -7,6 +7,8 @@ import { Progress } from "@/components/ui/progress";
 import { useApi, errMsg } from "@/lib/api";
 import { useMe } from "@/context/MeContext";
 import { ChannelTag, fmtDate, scoreColor } from "@/components/common";
+import { AudioTranscript } from "@/components/AudioTranscript";
+import { DisputePanel } from "@/components/DisputePanel";
 
 function List({ icon: Icon, title, items, color, testId }) {
   return (
@@ -24,6 +26,7 @@ export default function InteractionDetail() {
   const { isStaff } = useMe();
   const [it, setIt] = useState(null);
   const [articles, setArticles] = useState([]);
+  const player = useRef(null);
   const load = useCallback(() => api.get(`/interactions/${id}`).then((r) => setIt(r.data)).catch(() => setIt(false)), [api, id]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
@@ -52,7 +55,7 @@ export default function InteractionDetail() {
           <div className="flex items-center gap-8">
             <div><div className="label-mono">Sentiment</div><div className="mt-1 capitalize" data-testid="interaction-sentiment">{it.sentiment}</div></div>
             <div><div className="label-mono">CSAT</div><div className="mt-1 font-mono" data-testid="interaction-csat">{it.csat_predicted}/5</div></div>
-            <div className="text-right"><div className="label-mono">QA score</div>
+            <div className="text-right"><div className="label-mono">QA score{it.original_score != null && <span className="ml-1 text-slate-400 line-through" data-testid="interaction-original-score">{it.original_score}</span>}</div>
               <div data-testid="interaction-overall-score" className={`font-display text-5xl font-extrabold ${it.auto_failed ? "text-red-600" : scoreColor(it.overall_score)}`}>{it.auto_failed ? "FAIL" : `${it.overall_score}`}</div></div>
           </div>
         ) : it.status === "failed" ? (
@@ -65,7 +68,7 @@ export default function InteractionDetail() {
           <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-5" data-testid="compliance-flag-alert">
             <div className="mb-2 flex items-center gap-2 font-semibold text-red-700"><AlertTriangle className="h-4 w-4" />{it.auto_failed ? "Auto-fail: a mandatory criterion was missed" : "Compliance risks detected"}</div>
             {it.compliance_flags.map((f, i) => (
-              <div key={i} className="mt-2 text-sm"><span className="mr-2 rounded bg-red-500/20 px-1.5 py-0.5 font-mono text-[10px] uppercase text-red-700">{f.severity}</span>{f.issue}{f.quote && <span className="ml-2 italic text-slate-500">“{f.quote}”</span>}</div>
+              <div key={i} className="mt-2 text-sm"><span className="mr-2 rounded bg-red-500/20 px-1.5 py-0.5 font-mono text-[10px] uppercase text-red-700">{f.severity}</span>{f.issue}{f.quote && (it.segments?.length ? <button onClick={() => player.current?.seekToQuote(f.quote)} data-testid={`flag-quote-${i}`} className="ml-2 italic text-slate-500 underline decoration-dotted hover:text-[#1B3F94]">“{f.quote}” ▸ play</button> : <span className="ml-2 italic text-slate-500">“{f.quote}”</span>)}</div>
             ))}
           </div>
         )}
@@ -97,10 +100,8 @@ export default function InteractionDetail() {
           </div>
         </div>
       </>)}
-      {it.transcript && (
-        <div className="card-surface p-6"><div className="label-mono mb-3">Transcript {it.source === "audio" && `· from ${it.audio_name}`}</div>
-          <pre className="max-h-96 overflow-y-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-slate-600" data-testid="interaction-transcript">{it.transcript}</pre></div>
-      )}
+      {(it.transcript || it.audio_path) && <AudioTranscript ref={player} interaction={it} />}
+      {it.status === "scored" && <DisputePanel it={it} onChange={load} />}
     </div>
   );
 }

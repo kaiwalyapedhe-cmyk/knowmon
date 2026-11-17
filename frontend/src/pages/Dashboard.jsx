@@ -41,7 +41,7 @@ export default function Dashboard() {
         desc="AutoQA scores, compliance risk, sentiment, knowledge usage and training in one place." />
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Kpi label="Avg QA score" value={none ? "—" : `${k.avg_score}%`} sub={`${k.evaluated} interactions evaluated`} testId="kpi-avg-score" accent="text-[#1B3F94]" />
-        <Kpi label="Compliance flag rate" value={none ? "—" : `${k.flag_rate}%`} sub={`${k.pending} awaiting AI`} testId="kpi-flag-rate" accent="text-red-600" />
+        <Kpi label="Compliance flag rate" value={none ? "—" : `${k.flag_rate}%`} sub={`${k.pending} awaiting AI · ${k.open_disputes} open disputes`} testId="kpi-flag-rate" accent="text-red-600" />
         <Kpi label="Predicted CSAT" value={none ? "—" : `${k.csat}/5`} sub="AI estimate from conversation" testId="kpi-csat" accent="text-emerald-600" />
         <Kpi label="Quiz pass rate" value={k.quiz_attempts ? `${k.quiz_pass_rate}%` : "—"} sub={`${k.quiz_attempts} attempts · ${k.open_coaching} open coaching`} testId="kpi-quiz-pass" accent="text-amber-600" />
       </div>

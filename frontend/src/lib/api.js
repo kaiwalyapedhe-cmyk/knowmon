@@ -4,8 +4,19 @@ import { useAuth } from "@clerk/react";
 
 export const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-export function useApi() {
+const LDAP_KEY = "cadence_ldap_token";
+export const ldapToken = () => localStorage.getItem(LDAP_KEY);
+export const setLdapToken = (t) => (t ? localStorage.setItem(LDAP_KEY, t) : localStorage.removeItem(LDAP_KEY));
+
+export function useTokenGetter() {
   const { getToken } = useAuth();
+  const ref = useRef(getToken);
+  ref.current = getToken;
+  return useMemo(() => async () => ldapToken() || (await ref.current()), []);
+}
+
+export function useApi() {
+  const getToken = useTokenGetter();
   const ref = useRef(getToken);
   ref.current = getToken;
   return useMemo(() => {

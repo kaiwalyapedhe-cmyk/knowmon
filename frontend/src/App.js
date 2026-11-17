@@ -19,9 +19,15 @@ import TreeEditor from "@/pages/TreeEditor";
 import Training from "@/pages/Training";
 import Course from "@/pages/Course";
 import Users from "@/pages/Users";
+import { CompanyLoginLink } from "@/pages/LdapLogin";
 import Help from "@/pages/Help";
+import Disputes from "@/pages/Disputes";
+import Settings from "@/pages/Settings";
+import LdapLogin from "@/pages/LdapLogin";
+import { ldapToken } from "@/lib/api";
 
 function Protected() {
+  if (ldapToken()) return <MeProvider><Layout /></MeProvider>;
   return (
     <>
       <Show when="signed-in"><MeProvider><Layout /></MeProvider></Show>
@@ -31,6 +37,7 @@ function Protected() {
 }
 
 function Home() {
+  if (ldapToken()) return <Navigate to="/dashboard" replace />;
   return (
     <>
       <Show when="signed-in"><Navigate to="/dashboard" replace /></Show>
@@ -39,7 +46,7 @@ function Home() {
   );
 }
 
-const AuthPage = ({ children }) => <div className="grid-bg flex min-h-screen items-center justify-center p-4">{children}</div>;
+const AuthPage = ({ children }) => <div className="grid-bg flex min-h-screen flex-col items-center justify-center gap-4 p-4">{children}</div>;
 
 function App() {
   return (
@@ -48,8 +55,9 @@ function App() {
         <ClerkAuthProvider>
           <Routes>
             <Route path="/" element={<Home />} />
-            <Route path="/sign-in/*" element={<AuthPage><SignIn routing="path" path="/sign-in" signUpUrl="/sign-up" withSignUp /></AuthPage>} />
+            <Route path="/sign-in/*" element={<AuthPage><SignIn routing="path" path="/sign-in" signUpUrl="/sign-up" withSignUp /><CompanyLoginLink /></AuthPage>} />
             <Route path="/sign-up/*" element={<AuthPage><SignUp routing="path" path="/sign-up" signInUrl="/sign-in" /></AuthPage>} />
+            <Route path="/ldap-login" element={<LdapLogin />} />
             <Route path="/help" element={<Help />} />
             <Route path="/help/:id" element={<Help />} />
             <Route element={<Protected />}>
@@ -66,6 +74,8 @@ function App() {
               <Route path="/training" element={<Training />} />
               <Route path="/training/:id" element={<Course />} />
               <Route path="/users" element={<Users />} />
+              <Route path="/disputes" element={<Disputes />} />
+              <Route path="/settings" element={<Settings />} />
             </Route>
             <Route path="*" element={<Outlet />} />
           </Routes>

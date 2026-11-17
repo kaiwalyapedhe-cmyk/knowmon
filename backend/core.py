@@ -3,9 +3,12 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+import asyncio
+
+import jwt
 import requests
 from dotenv import load_dotenv
-from fastapi import Depends, HTTPException
+from fastapi import Depends, HTTPException, Request
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ReturnDocument
 from starlette.concurrency import run_in_threadpool
@@ -40,6 +43,37 @@ def new_id() -> str:
     return str(uuid.uuid4())
 
 
+_tasks = set()
+
+
+def spawn(coro):
+    t = asyncio.create_task(coro)
+    _tasks.add(t)
+    t.add_done_callback(_tasks.discard)
+
+
+LDAP_ISSUER = "cadence-ldap"
+
+
+def auth_user(request: Request) -> dict:
+    """Signed-in user from an LDAP session token (issued by /api/auth/ldap/login) or a Clerk session."""
+    auth = request.headers.get("authorization", "")
+    token = auth[7:] if auth.lower().startswith("bearer ") else ""
+    secret = os.environ.get("LDAP_JWT_SECRET", "")
+    if token and secret:
+        try:
+            header = jwt.get_unverified_header(token)
+        except jwt.PyJWTError:
+            raise HTTPException(status_code=401, detail="Invalid session")
+        if header.get("alg") == "HS256":
+            try:
+                claims = jwt.decode(token, secret, algorithms=["HS256"], issuer=LDAP_ISSUER)
+            except jwt.PyJWTError:
+                raise HTTPException(status_code=401, detail="Invalid or expired session")
+            return {"user_id": claims["sub"], "ldap": True}
+    return require_user(request)
+
+
 def effective_role(role) -> str:
     role = RETIRED_ROLES.get(role, role)
     return role if role in ROLES else DEFAULT_ROLE
@@ -60,9 +94,11 @@ def _clerk_profile(user_id: str) -> dict:
     return {"email": email, "name": name, "is_admin": is_admin}
 
 
-async def current_member(user: dict = Depends(require_user)) -> dict:
+async def current_member(user: dict = Depends(auth_user)) -> dict:
     uid = user["user_id"]
     member = await db.users.find_one({"user_id": uid}, {"_id": 0})
+    if user.get("ldap") and (member is None or member.get("disabled")):
+        raise HTTPException(status_code=401, detail="Session no longer valid")
     if member is None or not member.get("role") or not member.get("email"):
         prof = await run_in_threadpool(_clerk_profile, uid)
         role = "admin" if prof["is_admin"] else DEFAULT_ROLE

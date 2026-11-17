@@ -28,11 +28,17 @@ async def stream_text(system: str, prompt: str):
             break
 
 
-async def transcribe(path: str) -> str:
+def _get(o, k):
+    return o.get(k) if isinstance(o, dict) else getattr(o, k, None)
+
+
+async def transcribe(path: str) -> tuple:
     stt = OpenAISpeechToText(api_key=os.environ["EMERGENT_LLM_KEY"])
     with open(path, "rb") as f:
-        r = await stt.transcribe(file=f, model="whisper-1", response_format="json")
-    return r.text
+        r = await stt.transcribe(file=f, model="whisper-1", response_format="verbose_json", timestamp_granularities=["segment"])
+    segments = [{"start": round(float(_get(s, "start") or 0), 2), "end": round(float(_get(s, "end") or 0), 2),
+                 "text": (_get(s, "text") or "").strip()} for s in (_get(r, "segments") or [])]
+    return _get(r, "text") or "", segments
 
 
 SCORE_SYSTEM = ("You are an expert contact-centre quality auditor (AutoQA). You evaluate customer interactions "

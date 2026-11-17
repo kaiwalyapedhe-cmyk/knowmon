@@ -1,7 +1,8 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { UserButton } from "@clerk/react";
-import { BarChart3, BookOpen, GitBranch, GraduationCap, Headphones, ClipboardCheck, Users, MessageSquareHeart, Globe } from "lucide-react";
+import { Scale, Settings as SettingsIcon, LogOut, BarChart3, BookOpen, GitBranch, GraduationCap, Headphones, ClipboardCheck, Users, MessageSquareHeart, Globe } from "lucide-react";
 import { useMe, ROLE_LABELS } from "@/context/MeContext";
+import { setLdapToken } from "@/lib/api";
 
 const NAV = [
   { group: "Quality", items: [
@@ -9,13 +10,14 @@ const NAV = [
     { to: "/interactions", label: "Interactions", icon: Headphones },
     { to: "/qa-forms", label: "QA Forms", icon: ClipboardCheck, qa: true },
     { to: "/coaching", label: "Coaching", icon: MessageSquareHeart },
+    { to: "/disputes", label: "Disputes", icon: Scale },
   ]},
   { group: "Knowledge", items: [
     { to: "/knowledge", label: "Knowledge Hub", icon: BookOpen },
     { to: "/trees", label: "Decision Trees", icon: GitBranch },
     { to: "/training", label: "Training", icon: GraduationCap },
   ]},
-  { group: "Admin", admin: true, items: [{ to: "/users", label: "Users & Roles", icon: Users }] },
+  { group: "Admin", admin: true, items: [{ to: "/users", label: "Users & Roles", icon: Users }, { to: "/settings", label: "Digest & Directory", icon: SettingsIcon }] },
 ];
 
 function NavItem({ item }) {
@@ -60,7 +62,10 @@ export default function Layout() {
           <div className="hidden text-sm text-slate-500 lg:block">Welcome back, <span className="text-slate-900" data-testid="header-user-name">{me.name}</span></div>
           <div className="flex items-center gap-3">
             <span data-testid="header-role-badge" className="rounded-full border border-[#1B3F94]/30 bg-[#1B3F94]/10 px-2.5 py-0.5 font-mono text-[11px] uppercase tracking-wider text-[#1B3F94]">{ROLE_LABELS[me.role]}</span>
-            <UserButton />
+            {me.auth === "ldap" ? (
+              <button data-testid="ldap-sign-out-btn" title="Sign out" className="rounded-full p-2 text-slate-500 hover:bg-slate-100 hover:text-[#E31E24]"
+                onClick={() => { setLdapToken(null); window.location.href = "/"; }}><LogOut className="h-4 w-4" /></button>
+            ) : <UserButton />}
           </div>
         </header>
         <nav className="flex gap-1 overflow-x-auto border-b border-slate-200 px-3 py-2 lg:hidden">

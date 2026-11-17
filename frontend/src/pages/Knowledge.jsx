@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { useAuth } from "@clerk/react";
 import { Plus, Search, Eye, ListOrdered } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useApi } from "@/lib/api";
+import { useApi, useTokenGetter } from "@/lib/api";
 import { useMe } from "@/context/MeContext";
 import { AskAI } from "@/components/AskAI";
 import { Empty, PageHeader } from "@/components/common";
@@ -12,7 +11,7 @@ import { Empty, PageHeader } from "@/components/common";
 export default function Knowledge() {
   const api = useApi();
   const nav = useNavigate();
-  const { getToken } = useAuth();
+  const getToken = useTokenGetter();
   const { isStaff } = useMe();
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("");

@@ -1,4 +1,6 @@
 import asyncio
+import csv
+import io
 import json
 import logging
 import os
@@ -9,7 +11,8 @@ from contextlib import suppress
 from typing import List
 
 from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
+import openpyxl
 from pydantic import BaseModel, Field, model_validator
 from pymongo import ASCENDING, DESCENDING, IndexModel
 from starlette.middleware.cors import CORSMiddleware
@@ -20,8 +23,11 @@ except ModuleNotFoundError:  # launched from inside backend/ as `server`
     from clerk_auth import clerk_router
 
 import ai
+import storage
+from digest import digest_router
+from ldap_auth import ldap_router
 from core import (IN_ENV, QA, RANK, RETIRED_ROLES, ROLES, STAFF, agent_scope, client, current_member, db,
-                  effective_role, new_id, now, require_role)
+                  effective_role, new_id, now, require_role, spawn)
 from seed import seed
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -37,12 +43,14 @@ INDEXES = {
     "trees": [IndexModel([("id", ASCENDING)], name="id", unique=True)],
     "courses": [IndexModel([("id", ASCENDING)], name="id", unique=True)],
     "attempts": [IndexModel([("user_id", ASCENDING)], name="user_id")],
+    "digest_logs": [IndexModel([("at", DESCENDING)], name="at_desc")],
+    "cron_runs": [IndexModel([("run_id", ASCENDING)], name="run_id", unique=True)],
+    "ldap_failures": [IndexModel([("username", ASCENDING), ("at", DESCENDING)], name="user_at")],
     "coaching": [IndexModel([("id", ASCENDING)], name="id", unique=True), IndexModel([("agent_id", ASCENDING)], name="agent_id")],
 }
 
 app = FastAPI()
 api = APIRouter(prefix="/api")
-_tasks = set()
 CHANNELS = {"voice", "email", "chat", "whatsapp", "in_store"}
 
 
@@ -145,19 +153,25 @@ async def delete_form(form_id: str, m: dict = Depends(require_role(*QA))):
 
 
 # ---------- Interactions (AutoQA) ----------
+AUDIO_TYPES = {".mp3": "audio/mpeg", ".mp4": "audio/mp4", ".mpeg": "audio/mpeg", ".mpga": "audio/mpeg",
+               ".m4a": "audio/mp4", ".wav": "audio/wav", ".webm": "audio/webm"}
+_ai_slots = asyncio.Semaphore(3)
+
+
 async def process_interaction(iid: str, path: str | None):
     try:
-        doc = await db.interactions.find_one({"id": iid}, {"_id": 0})
-        transcript = doc.get("transcript", "")
-        if path:
-            transcript = await ai.transcribe(path)
-            await db.interactions.update_one({"id": iid}, {"$set": {"transcript": transcript, "status": "scoring"}})
-        if not transcript.strip():
-            raise ValueError("Transcript is empty")
-        form = await db.qa_forms.find_one({"id": doc["form_id"]}, {"_id": 0})
-        arts = await db.articles.find({}, {"_id": 0, "id": 1, "title": 1, "category": 1}).to_list(300)
-        result = await ai.score_interaction(form, transcript, doc["channel"], arts)
-        await db.interactions.update_one({"id": iid}, {"$set": {**result, "status": "scored", "scored_at": now()}})
+        async with _ai_slots:
+            doc = await db.interactions.find_one({"id": iid}, {"_id": 0})
+            transcript = doc.get("transcript", "")
+            if path:
+                transcript, segments = await ai.transcribe(path)
+                await db.interactions.update_one({"id": iid}, {"$set": {"transcript": transcript, "segments": segments, "status": "scoring"}})
+            if not transcript.strip():
+                raise ValueError("Transcript is empty")
+            form = await db.qa_forms.find_one({"id": doc["form_id"]}, {"_id": 0})
+            arts = await db.articles.find({}, {"_id": 0, "id": 1, "title": 1, "category": 1}).to_list(300)
+            result = await ai.score_interaction(form, transcript, doc["channel"], arts)
+            await db.interactions.update_one({"id": iid}, {"$set": {**result, "status": "scored", "scored_at": now()}})
     except Exception as exc:
         logger.exception("interaction %s failed", iid)
         await db.interactions.update_one({"id": iid}, {"$set": {"status": "failed", "error": str(exc)[:300]}})
@@ -167,10 +181,49 @@ async def process_interaction(iid: str, path: str | None):
                 os.remove(path)
 
 
-def _spawn(coro):
-    t = asyncio.create_task(coro)
-    _tasks.add(t)
-    t.add_done_callback(_tasks.discard)
+async def _resolve_agent(m: dict, agent_id: str, agent_name: str) -> tuple:
+    if m["role"] not in STAFF:  # agents can only submit their own interactions
+        return m["user_id"], m.get("name", "")
+    if agent_id:
+        person = await db.users.find_one({"user_id": agent_id, **IN_ENV}, {"_id": 0})
+        if person is None:
+            raise HTTPException(status_code=400, detail="Unknown agent account")
+        return agent_id, person.get("name") or agent_name
+    return "", agent_name
+
+
+async def _create_interaction(m: dict, channel: str, form: dict, agent_id: str, agent_name: str, customer_name: str,
+                              transcript: str, filename: str = "", data: bytes = b"", batch_id: str = "") -> dict:
+    if channel not in CHANNELS:
+        raise HTTPException(status_code=400, detail="Unknown channel")
+    if not agent_name.strip():
+        raise HTTPException(status_code=400, detail="Choose or enter an agent")
+    iid, path, audio_path, content_type = new_id(), None, "", ""
+    if filename:
+        ext = os.path.splitext(filename)[1].lower()
+        if ext not in AUDIO_TYPES:
+            raise HTTPException(status_code=400, detail=f"Unsupported audio format: {filename}")
+        if len(data) > 25 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail=f"Audio must be under 25 MB: {filename}")
+        content_type = AUDIO_TYPES[ext]
+        try:
+            audio_path = (await storage.put_object(f"recordings/{iid}{ext}", data, content_type))["path"]
+        except Exception:
+            logger.exception("recording upload failed; continuing without playback")
+        fd, path = tempfile.mkstemp(suffix=ext)
+        with os.fdopen(fd, "wb") as f:
+            f.write(data)
+    elif not transcript.strip():
+        raise HTTPException(status_code=400, detail="Upload audio or paste a transcript")
+    doc = {"id": iid, "channel": channel, "agent_id": agent_id, "agent_name": agent_name.strip(),
+           "customer_name": customer_name.strip(), "form_id": form["id"], "form_name": form["name"],
+           "source": "audio" if path else "text", "audio_name": filename if path else "",
+           "audio_path": audio_path, "audio_type": content_type, "batch_id": batch_id,
+           "transcript": transcript, "status": "transcribing" if path else "scoring",
+           "created_by": m["user_id"], "created_at": now()}
+    await db.interactions.insert_one(dict(doc))
+    spawn(process_interaction(iid, path))
+    return doc
 
 
 @api.post("/interactions")
@@ -179,42 +232,150 @@ async def create_interaction(
     customer_name: str = Form(""), transcript: str = Form(""), file: UploadFile | None = File(None),
     m: dict = Depends(current_member),
 ):
-    if channel not in CHANNELS:
-        raise HTTPException(status_code=400, detail="Unknown channel")
     form = await get_or_404("qa_forms", form_id)
-    if m["role"] not in STAFF:  # agents can only submit their own interactions
-        agent_id, agent_name = m["user_id"], m.get("name", "")
-    elif agent_id:
-        person = await db.users.find_one({"user_id": agent_id}, {"_id": 0})
-        agent_name = (person or {}).get("name") or agent_name
-    if not agent_name.strip():
-        raise HTTPException(status_code=400, detail="Choose or enter an agent")
-    path = None
-    if file is not None and file.filename:
-        ext = os.path.splitext(file.filename)[1].lower()
-        if ext not in {".mp3", ".mp4", ".mpeg", ".mpga", ".m4a", ".wav", ".webm"}:
-            raise HTTPException(status_code=400, detail="Unsupported audio format")
-        data = await file.read()
-        if len(data) > 25 * 1024 * 1024:
-            raise HTTPException(status_code=400, detail="Audio must be under 25 MB")
-        fd, path = tempfile.mkstemp(suffix=ext)
-        with os.fdopen(fd, "wb") as f:
-            f.write(data)
-    elif not transcript.strip():
-        raise HTTPException(status_code=400, detail="Upload audio or paste a transcript")
-    doc = {"id": new_id(), "channel": channel, "agent_id": agent_id, "agent_name": agent_name.strip(),
-           "customer_name": customer_name.strip(), "form_id": form_id, "form_name": form["name"],
-           "source": "audio" if path else "text", "audio_name": file.filename if path else "",
-           "transcript": transcript, "status": "transcribing" if path else "scoring",
-           "created_by": m["user_id"], "created_at": now()}
-    await db.interactions.insert_one(dict(doc))
-    _spawn(process_interaction(doc["id"], path))
-    return doc
+    agent_id, agent_name = await _resolve_agent(m, agent_id, agent_name)
+    has_file = file is not None and bool(file.filename)
+    return await _create_interaction(m, channel, form, agent_id, agent_name, customer_name, transcript,
+                                     file.filename if has_file else "", await file.read() if has_file else b"")
+
+
+@api.post("/interactions/bulk-audio")
+async def bulk_audio(
+    files: List[UploadFile] = File(...), channel: str = Form("voice"), form_id: str = Form(...),
+    agent_id: str = Form(""), agent_name: str = Form(""), m: dict = Depends(require_role(*STAFF)),
+):
+    if len(files) > 50:
+        raise HTTPException(status_code=400, detail="Up to 50 recordings per batch")
+    form = await get_or_404("qa_forms", form_id)
+    agent_id, agent_name = await _resolve_agent(m, agent_id, agent_name)
+    batch_id, created, errors = new_id(), [], []
+    for f in files:
+        try:
+            doc = await _create_interaction(m, channel, form, agent_id, agent_name, "", "", f.filename, await f.read(), batch_id)
+            created.append(doc["id"])
+        except HTTPException as exc:
+            errors.append({"row": f.filename, "error": exc.detail})
+    return {"batch_id": batch_id, "created": len(created), "errors": errors}
+
+
+def _read_sheet(filename: str, data: bytes) -> list:
+    name = filename.lower()
+    if name.endswith(".csv"):
+        return list(csv.DictReader(io.StringIO(data.decode("utf-8-sig"))))
+    if name.endswith(".xlsx"):
+        ws = openpyxl.load_workbook(io.BytesIO(data), read_only=True, data_only=True).active
+        rows = list(ws.iter_rows(values_only=True))
+        if not rows:
+            return []
+        head = [str(h or "").strip() for h in rows[0]]
+        return [{head[i]: ("" if v is None else str(v)) for i, v in enumerate(r) if i < len(head)} for r in rows[1:]]
+    raise HTTPException(status_code=400, detail="Upload a .csv or .xlsx file")
+
+
+@api.post("/interactions/bulk-sheet")
+async def bulk_sheet(file: UploadFile = File(...), form_id: str = Form(""), m: dict = Depends(require_role(*STAFF))):
+    try:
+        rows = _read_sheet(file.filename or "", await file.read())
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=400, detail="Could not read the spreadsheet")
+    if not rows:
+        raise HTTPException(status_code=400, detail="The spreadsheet has no rows")
+    if len(rows) > 200:
+        raise HTTPException(status_code=400, detail="Up to 200 rows per import")
+    forms = await db.qa_forms.find({}, {"_id": 0}).to_list(200)
+    by_key = {f["id"]: f for f in forms} | {f["name"].strip().lower(): f for f in forms}
+    people = {p["email"].lower(): p for p in await db.users.find({**IN_ENV, "email": {"$nin": [None, ""]}}, {"_id": 0}).to_list(2000)}
+    batch_id, created, errors = new_id(), 0, []
+    for n, raw in enumerate(rows, start=2):
+        r = {str(k).strip().lower(): (v or "").strip() for k, v in raw.items() if k}
+        try:
+            channel = (r.get("channel") or "voice").lower().replace("-", "_").replace(" ", "_")
+            key = r.get("form") or form_id
+            form = by_key.get(key.lower() if key else "") or by_key.get(key) or \
+                next((f for f in forms if f.get("channel") in (channel, "all")), None) or forms[0]
+            person = people.get(r.get("agent_email", "").lower())
+            agent_id, agent_name = (person["user_id"], person.get("name", "")) if person else ("", r.get("agent_name", ""))
+            await _create_interaction(m, channel, form, agent_id, agent_name, r.get("customer_name", ""),
+                                      r.get("transcript", ""), batch_id=batch_id)
+            created += 1
+        except HTTPException as exc:
+            errors.append({"row": n, "error": exc.detail})
+    return {"batch_id": batch_id, "created": created, "errors": errors}
+
+
+@api.get("/interactions/{iid}/audio")
+async def interaction_audio(iid: str, m: dict = Depends(current_member)):
+    doc = await get_or_404("interactions", iid, agent_scope(m))
+    if not doc.get("audio_path"):
+        raise HTTPException(status_code=404, detail="No recording stored")
+    try:
+        data, ctype = await storage.get_object(doc["audio_path"])
+    except Exception:
+        logger.exception("recording download failed")
+        raise HTTPException(status_code=502, detail="Recording is temporarily unavailable")
+    return Response(content=data, media_type=doc.get("audio_type") or ctype)
+
+
+# ---------- Disputes ----------
+class DisputeIn(BaseModel):
+    reason: str = Field(min_length=5, max_length=3000)
+    criterion_ids: List[str] = []
+
+
+class ResolveIn(BaseModel):
+    decision: str
+    new_score: float | None = Field(None, ge=0, le=100)
+    note: str = Field("", max_length=3000)
+
+
+@api.post("/interactions/{iid}/dispute")
+async def raise_dispute(iid: str, body: DisputeIn, m: dict = Depends(current_member)):
+    doc = await get_or_404("interactions", iid, {"agent_id": m["user_id"]})
+    if doc["status"] != "scored":
+        raise HTTPException(status_code=400, detail="Only scored interactions can be disputed")
+    if (doc.get("dispute") or {}).get("status") == "open":
+        raise HTTPException(status_code=409, detail="A dispute is already open")
+    valid = {c["id"] for c in doc.get("criteria_results", [])}
+    dispute = {"status": "open", "reason": body.reason.strip(), "criterion_ids": [c for c in body.criterion_ids if c in valid],
+               "raised_by": m["user_id"], "raised_by_name": m.get("name", ""), "raised_at": now(),
+               "score_at_dispute": doc["overall_score"]}
+    await db.interactions.update_one({"id": iid}, {"$set": {"dispute": dispute}})
+    return dispute
+
+
+@api.post("/interactions/{iid}/dispute/resolve")
+async def resolve_dispute(iid: str, body: ResolveIn, m: dict = Depends(require_role(*STAFF))):
+    doc = await get_or_404("interactions", iid)
+    dispute = doc.get("dispute") or {}
+    if dispute.get("status") != "open":
+        raise HTTPException(status_code=409, detail="No open dispute")
+    if body.decision not in ("accepted", "rejected"):
+        raise HTTPException(status_code=400, detail="Decision must be accepted or rejected")
+    update = {"dispute.status": "resolved", "dispute.decision": body.decision, "dispute.note": body.note.strip(),
+              "dispute.resolved_by": m["user_id"], "dispute.resolved_by_name": m.get("name", ""), "dispute.resolved_at": now()}
+    if body.decision == "accepted":
+        if body.new_score is None:
+            raise HTTPException(status_code=400, detail="Enter the corrected score")
+        update.update({"overall_score": round(body.new_score, 1), "auto_failed": False, "dispute.new_score": round(body.new_score, 1),
+                       "original_score": doc.get("original_score", doc["overall_score"])})
+    await db.interactions.update_one({"id": iid}, {"$set": update})
+    return await get_or_404("interactions", iid, projection={"transcript": 0, "segments": 0})
+
+
+@api.get("/disputes")
+async def list_disputes(status: str = "", m: dict = Depends(current_member)):
+    q = {"dispute": {"$exists": True}, **agent_scope(m)}
+    if status:
+        q["dispute.status"] = status
+    return await db.interactions.find(q, {"_id": 0, "transcript": 0, "segments": 0, "criteria_results": 0}) \
+        .sort("dispute.raised_at", -1).to_list(500)
 
 
 @api.get("/interactions")
 async def list_interactions(m: dict = Depends(current_member)):
-    return await db.interactions.find(agent_scope(m), {"_id": 0, "transcript": 0, "criteria_results": 0}) \
+    return await db.interactions.find(agent_scope(m), {"_id": 0, "transcript": 0, "criteria_results": 0, "segments": 0}) \
         .sort("created_at", -1).to_list(500)
 
 
@@ -227,7 +388,7 @@ async def get_interaction(iid: str, m: dict = Depends(current_member)):
 async def rescore(iid: str, m: dict = Depends(require_role(*STAFF))):
     await get_or_404("interactions", iid)
     await db.interactions.update_one({"id": iid}, {"$set": {"status": "scoring", "error": ""}})
-    _spawn(process_interaction(iid, None))
+    spawn(process_interaction(iid, None))
     return {"ok": True}
 
 
@@ -277,6 +438,7 @@ async def dashboard(m: dict = Depends(current_member)):
             "quiz_attempts": len(attempts), "quiz_avg": avg([a["score"] for a in attempts]),
             "quiz_pass_rate": round(100 * sum(1 for a in attempts if a["passed"]) / len(attempts), 1) if attempts else 0,
             "articles": await db.articles.count_documents({}),
+            "open_disputes": await db.interactions.count_documents({"dispute.status": "open", **scope}),
         },
         "sentiment": [{"name": k, "value": v} for k, v in Counter(i.get("sentiment", "neutral") for i in items).items()],
         "channels": [{"name": k, "value": v} for k, v in Counter(i["channel"] for i in items).items()],
@@ -682,6 +844,8 @@ async def delete_coaching(cid: str, m: dict = Depends(require_role(*STAFF))):
 
 
 app.include_router(api)
+app.include_router(digest_router)
+app.include_router(ldap_router)
 app.include_router(clerk_router)  # /api/clerk/config and /api/__clerk/*
 
 app.add_middleware(
@@ -698,6 +862,10 @@ async def startup():
     for old, new in RETIRED_ROLES.items():
         await db.users.update_many({"role": old}, {"$set": {"role": new}})
     await seed()
+    try:
+        await asyncio.to_thread(storage.init_storage)
+    except Exception as exc:
+        logger.error("Storage init failed: %s", exc)
     app.state.index_task = asyncio.create_task(ensure_indexes())
 
 

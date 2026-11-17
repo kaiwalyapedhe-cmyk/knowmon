@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { useApi, errMsg } from "@/lib/api";
+import { useApi, errMsg, ldapToken, setLdapToken } from "@/lib/api";
 
 const MeContext = createContext(null);
 const STAFF = ["admin", "qa_auditor", "team_lead"];
@@ -9,7 +9,10 @@ export function MeProvider({ children }) {
   const [me, setMe] = useState(null);
   const [error, setError] = useState("");
   useEffect(() => {
-    api.get("/me").then((r) => setMe(r.data)).catch((e) => setError(errMsg(e)));
+    api.get("/me").then((r) => setMe(r.data)).catch((e) => {
+      if (ldapToken() && e?.response?.status === 401) { setLdapToken(null); window.location.href = "/ldap-login"; return; }
+      setError(errMsg(e));
+    });
   }, [api]);
   if (error) return <p className="p-8 text-rose-400" data-testid="me-error">{error}</p>;
   if (!me) return <div className="p-8 label-mono" data-testid="me-loading">Loading workspace…</div>;

@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowRight, Headphones, BookOpen, GitBranch, GraduationCap, ShieldAlert, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CompanyLoginLink } from "@/pages/LdapLogin";
 
 const FEATURES = [
   { icon: Headphones, title: "AutoQA on every interaction", text: "Upload calls or paste chats, emails and WhatsApp threads. AI transcribes and scores them on your QA forms." },
@@ -29,6 +30,7 @@ export default function Landing() {
           <div className="font-display text-2xl font-extrabold text-white" data-testid="landing-logo">Cadence<span className="text-[#FF5A5F]">CX</span></div>
           <div className="flex gap-2">
             <Link to="/help"><Button variant="ghost" data-testid="landing-help-link" className="text-[#1B3F94] hover:text-[#E31E24]">Help centre</Button></Link>
+            <CompanyLoginLink />
             <Link to="/sign-in"><Button data-testid="landing-sign-in-btn" className="rounded-full bg-[#E31E24] px-6 hover:bg-[#C4161C]">Sign in</Button></Link>
           </div>
         </header>

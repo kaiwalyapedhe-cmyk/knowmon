@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, Upload, Scale } from "lucide-react";
+import { BulkImportDialog } from "@/components/BulkImportDialog";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -91,6 +92,8 @@ export default function Interactions() {
   const api = useApi();
   const [items, setItems] = useState(null);
   const [open, setOpen] = useState(false);
+  const [bulk, setBulk] = useState(false);
+  const { isStaff } = useMe();
   const [channel, setChannel] = useState("");
   const load = useCallback(() => api.get("/interactions").then((r) => setItems(r.data)), [api]);
   useEffect(() => { load(); }, [load]);
@@ -104,6 +107,7 @@ export default function Interactions() {
   return (
     <div>
       <PageHeader eyebrow="Omnichannel AutoQA" title="Interactions" desc="Every call, chat, email, WhatsApp and in-store conversation, scored by AI against your QA forms.">
+        {isStaff && <Button variant="outline" className="hover:text-[#1B3F94]" data-testid="bulk-import-btn" onClick={() => setBulk(true)}><Upload className="mr-1.5 h-4 w-4" /> Bulk import</Button>}
         <Button data-testid="new-interaction-btn" onClick={() => setOpen(true)}><Plus className="mr-1.5 h-4 w-4" /> Evaluate interaction</Button>
       </PageHeader>
       <div className="mb-4 flex flex-wrap gap-2">
@@ -126,6 +130,7 @@ export default function Interactions() {
                   <td className="p-4">{i.compliance_flags?.length ? <span className="text-red-600">{i.compliance_flags.length}</span> : <span className="text-slate-600">0</span>}</td>
                   <td className="p-4 text-xs text-slate-500">{fmtDate(i.created_at)}</td>
                   <td className="p-4 text-right" data-testid={`interaction-status-${i.id}`}>
+                    {i.dispute?.status === "open" && <Scale className="mr-2 inline h-3.5 w-3.5 text-amber-600" data-testid={`interaction-dispute-icon-${i.id}`} />}
                     {i.status === "scored" ? <ScoreBadge score={i.overall_score} autoFailed={i.auto_failed} />
                       : i.status === "failed" ? <span className="text-xs text-red-600">Failed</span>
                       : <span className="inline-flex items-center gap-1 text-xs text-amber-600"><Loader2 className="h-3 w-3 animate-spin" />{i.status}</span>}
@@ -137,6 +142,7 @@ export default function Interactions() {
         </div>
       )}
       <NewInteractionDialog open={open} onOpenChange={setOpen} onCreated={load} />
+      {isStaff && <BulkImportDialog open={bulk} onOpenChange={setBulk} onDone={load} />}
     </div>
   );
 }
