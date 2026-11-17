@@ -13,33 +13,46 @@ const FEATURES = [
 
 export default function Landing() {
   return (
-    <div className="grid-bg min-h-screen">
-      <header className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6">
-        <div className="font-display text-xl font-extrabold">Cadence<span className="text-blue-400">CX</span></div>
-        <div className="flex gap-2">
-          <Link to="/help"><Button variant="ghost" data-testid="landing-help-link" className="hover:text-white">Help centre</Button></Link>
-          <Link to="/sign-in"><Button data-testid="landing-sign-in-btn">Sign in</Button></Link>
-        </div>
-      </header>
-      <section className="mx-auto max-w-7xl px-6 pb-16 pt-16 lg:pt-28">
-        <div className="label-mono mb-6 fade-up">Quality monitoring × Knowledge management</div>
-        <h1 className="max-w-4xl text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl fade-up">
-          Score every conversation. <span className="text-blue-400">Guide every answer.</span>
-        </h1>
-        <p className="mt-6 max-w-xl text-base text-slate-400 fade-up" style={{ animationDelay: ".1s" }}>
-          Cadence CX unifies AI-powered QA, coaching, a searchable knowledge base, decision trees and training, so your contact centre learns from every interaction.
-        </p>
-        <div className="mt-10 flex flex-wrap gap-3 fade-up" style={{ animationDelay: ".2s" }}>
-          <Link to="/sign-up"><Button size="lg" data-testid="landing-get-started-btn">Get started <ArrowRight className="ml-2 h-4 w-4" /></Button></Link>
-          <Link to="/help"><Button size="lg" variant="outline" data-testid="landing-self-service-btn" className="hover:text-white">Try customer self-service</Button></Link>
-        </div>
-      </section>
-      <section className="mx-auto grid max-w-7xl gap-px overflow-hidden border border-white/10 bg-white/10 px-0 sm:grid-cols-2 lg:grid-cols-3 mb-24 rounded-lg">
+    <div className="min-h-screen bg-white">
+      <div className="relative overflow-hidden">
+        <svg className="pointer-events-none absolute inset-x-0 top-0 h-[300px] w-full sm:h-[360px]" viewBox="0 0 1440 360" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M0 0 H1100 C 860 150 420 250 0 330 Z" fill="#1B3F94" />
+          <path d="M0 330 C 420 250 860 150 1100 0" stroke="#E31E24" strokeWidth="7" fill="none" />
+          <path d="M260 215 C 560 150 820 100 980 40" stroke="#FFFFFF" strokeWidth="26" fill="none" />
+          <path d="M250 232 C 560 166 820 116 980 56" stroke="#E31E24" strokeWidth="5" fill="none" />
+        </svg>
+        <svg className="pointer-events-none absolute bottom-0 right-0 h-[220px] w-2/3" viewBox="0 0 900 220" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M900 0 V220 H120 C 420 200 700 120 900 0 Z" fill="#1B3F94" />
+          <path d="M120 220 C 420 200 700 120 900 0" stroke="#E31E24" strokeWidth="8" fill="none" />
+        </svg>
+        <header className="relative mx-auto flex max-w-7xl items-center justify-between px-6 py-6">
+          <div className="font-display text-2xl font-extrabold text-white" data-testid="landing-logo">Cadence<span className="text-[#FF5A5F]">CX</span></div>
+          <div className="flex gap-2">
+            <Link to="/help"><Button variant="ghost" data-testid="landing-help-link" className="text-[#1B3F94] hover:text-[#E31E24]">Help centre</Button></Link>
+            <Link to="/sign-in"><Button data-testid="landing-sign-in-btn" className="rounded-full bg-[#E31E24] px-6 hover:bg-[#C4161C]">Sign in</Button></Link>
+          </div>
+        </header>
+        <section className="relative mx-auto max-w-7xl px-6 pb-64 pt-48 sm:pt-64">
+          <div className="label-mono mb-4 fade-up">Quality monitoring × Knowledge management for CX teams</div>
+          <h1 className="max-w-4xl text-4xl font-extrabold leading-[1.08] tracking-tight sm:text-5xl lg:text-6xl fade-up">
+            Score every conversation. <span className="text-[#E31E24]">Guide every answer.</span>
+          </h1>
+          <p className="mt-5 max-w-xl text-base text-slate-700 fade-up" style={{ animationDelay: ".1s" }}>
+            A step-by-step platform that unifies AI-powered QA, coaching, a searchable knowledge base, decision trees and training, so your contact centre learns from every interaction.
+          </p>
+          <div className="mt-8 flex flex-wrap gap-3 fade-up" style={{ animationDelay: ".2s" }}>
+            <Link to="/sign-up"><Button size="lg" data-testid="landing-get-started-btn" className="rounded-full bg-[#E31E24] px-7 hover:bg-[#C4161C]">Get started <ArrowRight className="ml-2 h-4 w-4" /></Button></Link>
+            <Link to="/help"><Button size="lg" variant="outline" data-testid="landing-self-service-btn" className="rounded-full border-[#1B3F94] text-[#1B3F94] hover:bg-[#1B3F94]/5 hover:text-[#1B3F94]">Try customer self-service</Button></Link>
+          </div>
+        </section>
+      </div>
+      <h2 className="mx-auto max-w-7xl px-6 pb-6 pt-16 text-2xl font-extrabold">Two tools, one workflow</h2>
+      <section className="mx-6 xl:mx-auto grid max-w-7xl gap-px overflow-hidden border border-slate-200 bg-slate-200 px-0 sm:grid-cols-2 lg:grid-cols-3 mb-24 rounded-lg">
         {FEATURES.map((f, i) => (
-          <div key={f.title} className="bg-[#0E121A] p-8 fade-up" style={{ animationDelay: `${0.05 * i}s` }}>
-            <f.icon className="mb-5 h-6 w-6 text-blue-400" />
+          <div key={f.title} className="bg-white p-8 fade-up" style={{ animationDelay: `${0.05 * i}s` }}>
+            <f.icon className="mb-5 h-6 w-6 text-[#1B3F94]" />
             <h3 className="mb-2 text-lg font-semibold">{f.title}</h3>
-            <p className="text-sm leading-relaxed text-slate-400">{f.text}</p>
+            <p className="text-sm leading-relaxed text-slate-500">{f.text}</p>
           </div>
         ))}
       </section>

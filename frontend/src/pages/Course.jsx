@@ -23,8 +23,8 @@ function QuizRunner({ course }) {
   return (
     <div className="space-y-4" data-testid="quiz-runner">
       {result && (
-        <div className={`rounded-lg border p-5 ${result.passed ? "border-emerald-500/30 bg-emerald-500/10" : "border-rose-500/30 bg-rose-500/10"}`} data-testid="quiz-result">
-          <div className="flex items-center gap-2 text-lg font-semibold">{result.passed ? <Award className="h-5 w-5 text-emerald-400" /> : <XCircle className="h-5 w-5 text-rose-400" />}
+        <div className={`rounded-lg border p-5 ${result.passed ? "border-emerald-500/30 bg-emerald-500/10" : "border-red-500/30 bg-red-500/10"}`} data-testid="quiz-result">
+          <div className="flex items-center gap-2 text-lg font-semibold">{result.passed ? <Award className="h-5 w-5 text-emerald-600" /> : <XCircle className="h-5 w-5 text-red-600" />}
             {result.passed ? "Passed — certificate earned" : "Not passed yet"} · <span data-testid="quiz-score">{result.score}%</span> ({result.correct}/{result.total})</div>
         </div>
       )}
@@ -34,15 +34,15 @@ function QuizRunner({ course }) {
           <div className="grid gap-2 sm:grid-cols-2">
             {q.options.map((o, j) => {
               const rev = result?.review[i];
-              const state = rev ? (j === rev.answer_index ? "border-emerald-500 bg-emerald-500/10" : j === rev.chosen ? "border-rose-500 bg-rose-500/10" : "border-white/10") : answers[i] === j ? "border-blue-500 bg-blue-500/15" : "border-white/10 hover:border-white/30";
+              const state = rev ? (j === rev.answer_index ? "border-emerald-500 bg-emerald-500/10" : j === rev.chosen ? "border-red-500 bg-red-500/10" : "border-slate-200") : answers[i] === j ? "border-[#1B3F94] bg-[#1B3F94]/15" : "border-slate-200 hover:border-slate-400";
               return <button key={j} disabled={!!result} onClick={() => setAnswers(answers.map((a, x) => (x === i ? j : a)))} data-testid={`quiz-q${i}-option-${j}`}
                 className={`rounded-md border px-3 py-2 text-left text-sm transition-colors ${state}`}>{o}</button>;
             })}
           </div>
-          {result?.review[i]?.explanation && <p className="mt-3 flex items-start gap-1.5 text-xs text-slate-400"><CheckCircle2 className="mt-0.5 h-3 w-3 text-emerald-400" />{result.review[i].explanation}</p>}
+          {result?.review[i]?.explanation && <p className="mt-3 flex items-start gap-1.5 text-xs text-slate-500"><CheckCircle2 className="mt-0.5 h-3 w-3 text-emerald-600" />{result.review[i].explanation}</p>}
         </div>
       ))}
-      {result ? <Button variant="outline" className="hover:text-white" onClick={() => { setResult(null); setAnswers(course.quiz.map(() => null)); }} data-testid="quiz-retake-btn">Retake</Button>
+      {result ? <Button variant="outline" className="hover:text-[#1B3F94]" onClick={() => { setResult(null); setAnswers(course.quiz.map(() => null)); }} data-testid="quiz-retake-btn">Retake</Button>
         : <Button onClick={submit} disabled={answers.some((a) => a === null)} data-testid="quiz-submit-btn">Submit answers</Button>}
     </div>
   );
@@ -60,7 +60,7 @@ function CourseEditor({ initial, onSave, onCancel }) {
     const linked = c.lessons.map((l) => articles.find((a) => a.id === l.article_id)?.content || "").join("\n");
     const content = c.lessons.map((l) => `${l.title}\n${l.content}`).join("\n\n") + "\n" + linked;
     setBusy(true);
-    try { const r = await api.post("/courses/generate-quiz", { content, count: 5 }); setC({ ...c, quiz: [...c.quiz, ...r.data] }); toast.success(`${r.data.length} questions added`); }
+    try { const r = await api.post("/courses/generate-quiz", { content, count: 5 }); setC((p) => ({ ...p, quiz: [...p.quiz, ...r.data] })); toast.success(`${r.data.length} questions added`); }
     catch (e) { toast.error(errMsg(e)); } finally { setBusy(false); }
   };
   return (
@@ -73,20 +73,20 @@ function CourseEditor({ initial, onSave, onCancel }) {
       <Field label="Description"><Input value={c.description} onChange={(e) => setC({ ...c, description: e.target.value })} data-testid="course-desc-input" /></Field>
       <div className="label-mono">Lessons</div>
       {c.lessons.map((l, i) => (
-        <div key={i} className="grid gap-2 rounded-md border border-white/10 p-3" data-testid={`lesson-editor-${i}`}>
+        <div key={i} className="grid gap-2 rounded-md border border-slate-200 p-3" data-testid={`lesson-editor-${i}`}>
           <div className="flex gap-2"><Input placeholder="Lesson title" value={l.title} onChange={(e) => setL(i, "title", e.target.value)} data-testid={`lesson-title-${i}`} />
-            <Button size="icon" variant="ghost" className="hover:text-white" onClick={() => setC({ ...c, lessons: c.lessons.filter((_, j) => j !== i) })}><Trash2 className="h-4 w-4" /></Button></div>
+            <Button size="icon" variant="ghost" className="hover:text-[#1B3F94]" onClick={() => setC({ ...c, lessons: c.lessons.filter((_, j) => j !== i) })}><Trash2 className="h-4 w-4" /></Button></div>
           <Textarea rows={3} placeholder="Lesson content" value={l.content} onChange={(e) => setL(i, "content", e.target.value)} data-testid={`lesson-content-${i}`} />
           <NativeSelect value={l.article_id} onChange={(v) => setL(i, "article_id", v)} testId={`lesson-article-${i}`} options={[{ value: "", label: "Link a knowledge article (optional)" }, ...articles.map((a) => ({ value: a.id, label: a.title }))]} />
         </div>
       ))}
-      <Button variant="outline" size="sm" className="hover:text-white" onClick={() => setC({ ...c, lessons: [...c.lessons, { title: "", content: "", article_id: "" }] })} data-testid="add-lesson-btn"><Plus className="mr-1 h-3 w-3" />Add lesson</Button>
+      <Button variant="outline" size="sm" className="hover:text-[#1B3F94]" onClick={() => setC({ ...c, lessons: [...c.lessons, { title: "", content: "", article_id: "" }] })} data-testid="add-lesson-btn"><Plus className="mr-1 h-3 w-3" />Add lesson</Button>
       <div className="flex items-center justify-between"><div className="label-mono">Assessment ({c.quiz.length})</div>
-        <Button size="sm" variant="outline" className="hover:text-white" onClick={genQuiz} disabled={busy} data-testid="generate-quiz-btn">{busy ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1 h-3 w-3" />}Generate questions with AI</Button></div>
+        <Button size="sm" variant="outline" className="hover:text-[#1B3F94]" onClick={genQuiz} disabled={busy} data-testid="generate-quiz-btn">{busy ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Sparkles className="mr-1 h-3 w-3" />}Generate questions with AI</Button></div>
       {c.quiz.map((q, i) => (
-        <div key={i} className="grid gap-2 rounded-md border border-white/10 p-3" data-testid={`quiz-editor-${i}`}>
+        <div key={i} className="grid gap-2 rounded-md border border-slate-200 p-3" data-testid={`quiz-editor-${i}`}>
           <div className="flex gap-2"><Input value={q.question} onChange={(e) => setQ(i, "question", e.target.value)} placeholder="Question" data-testid={`quiz-editor-question-${i}`} />
-            <Button size="icon" variant="ghost" className="hover:text-white" onClick={() => setC({ ...c, quiz: c.quiz.filter((_, j) => j !== i) })}><Trash2 className="h-4 w-4" /></Button></div>
+            <Button size="icon" variant="ghost" className="hover:text-[#1B3F94]" onClick={() => setC({ ...c, quiz: c.quiz.filter((_, j) => j !== i) })}><Trash2 className="h-4 w-4" /></Button></div>
           {q.options.map((o, j) => (
             <div key={j} className="flex items-center gap-2"><input type="radio" checked={q.answer_index === j} onChange={() => setQ(i, "answer_index", j)} data-testid={`quiz-editor-${i}-correct-${j}`} />
               <Input value={o} onChange={(e) => setQ(i, "options", q.options.map((x, y) => (y === j ? e.target.value : x)))} /></div>
@@ -94,8 +94,8 @@ function CourseEditor({ initial, onSave, onCancel }) {
           <Input value={q.explanation} onChange={(e) => setQ(i, "explanation", e.target.value)} placeholder="Explanation" />
         </div>
       ))}
-      <Button variant="outline" size="sm" className="hover:text-white" onClick={() => setC({ ...c, quiz: [...c.quiz, { question: "", options: ["", "", "", ""], answer_index: 0, explanation: "" }] })} data-testid="add-question-btn"><Plus className="mr-1 h-3 w-3" />Add question</Button>
-      <div className="flex justify-end gap-2"><Button variant="ghost" className="hover:text-white" onClick={onCancel}>Cancel</Button><Button onClick={() => onSave(c)} disabled={!c.title} data-testid="course-save-btn">Save course</Button></div>
+      <Button variant="outline" size="sm" className="hover:text-[#1B3F94]" onClick={() => setC({ ...c, quiz: [...c.quiz, { question: "", options: ["", "", "", ""], answer_index: 0, explanation: "" }] })} data-testid="add-question-btn"><Plus className="mr-1 h-3 w-3" />Add question</Button>
+      <div className="flex justify-end gap-2"><Button variant="ghost" className="hover:text-[#1B3F94]" onClick={onCancel}>Cancel</Button><Button onClick={() => onSave(c)} disabled={!c.title} data-testid="course-save-btn">Save course</Button></div>
     </div>
   );
 }
@@ -117,29 +117,29 @@ export default function Course() {
       if (isNew) nav(`/training/${r.data.id}`, { replace: true });
     } catch (e) { toast.error(errMsg(e)); }
   };
-  if (c === false) return <p className="text-slate-400">Course not found.</p>;
+  if (c === false) return <p className="text-slate-500">Course not found.</p>;
   if (!c) return <div className="label-mono">Loading…</div>;
   const l = c.lessons[lesson];
   return (
     <div className="mx-auto max-w-5xl">
-      <Link to="/training" className="mb-6 inline-flex items-center gap-1 text-sm text-slate-400 hover:text-white" data-testid="back-to-training"><ArrowLeft className="h-4 w-4" />Training</Link>
+      <Link to="/training" className="mb-6 inline-flex items-center gap-1 text-sm text-slate-500 hover:text-[#1B3F94]" data-testid="back-to-training"><ArrowLeft className="h-4 w-4" />Training</Link>
       {editing ? <CourseEditor initial={c} onSave={save} onCancel={() => (isNew ? nav("/training") : setEditing(false))} /> : (
         <div className="space-y-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div><div className="label-mono mb-2">{c.category} · pass mark {c.pass_mark}%</div>
-              <h1 className="text-3xl font-extrabold tracking-tight" data-testid="course-title">{c.title}</h1><p className="mt-2 text-slate-400">{c.description}</p></div>
-            {isStaff && <div className="flex gap-2"><Button variant="outline" className="hover:text-white" onClick={() => setEditing(true)} data-testid="course-edit-btn"><Pencil className="mr-1 h-4 w-4" />Edit</Button>
-              <Button variant="ghost" className="hover:text-white" data-testid="course-delete-btn" onClick={async () => { if (window.confirm("Delete course?")) { await api.delete(`/courses/${id}`); nav("/training"); } }}><Trash2 className="h-4 w-4" /></Button></div>}
+              <h1 className="text-3xl font-extrabold tracking-tight" data-testid="course-title">{c.title}</h1><p className="mt-2 text-slate-500">{c.description}</p></div>
+            {isStaff && <div className="flex gap-2"><Button variant="outline" className="hover:text-[#1B3F94]" onClick={() => setEditing(true)} data-testid="course-edit-btn"><Pencil className="mr-1 h-4 w-4" />Edit</Button>
+              <Button variant="ghost" className="hover:text-[#1B3F94]" data-testid="course-delete-btn" onClick={async () => { if (window.confirm("Delete course?")) { await api.delete(`/courses/${id}`); nav("/training"); } }}><Trash2 className="h-4 w-4" /></Button></div>}
           </div>
           {c.lessons.length > 0 && (
             <div className="grid gap-4 lg:grid-cols-12">
               <div className="flex gap-1 overflow-x-auto lg:col-span-4 lg:flex-col">
-                {c.lessons.map((x, i) => <button key={i} onClick={() => setLesson(i)} data-testid={`lesson-tab-${i}`} className={`shrink-0 rounded-md px-3 py-2 text-left text-sm ${i === lesson ? "bg-amber-500/15 text-amber-200" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}>{i + 1}. {x.title}</button>)}
+                {c.lessons.map((x, i) => <button key={i} onClick={() => setLesson(i)} data-testid={`lesson-tab-${i}`} className={`shrink-0 rounded-md px-3 py-2 text-left text-sm ${i === lesson ? "bg-amber-500/15 text-amber-800" : "text-slate-500 hover:bg-slate-100 hover:text-[#1B3F94]"}`}>{i + 1}. {x.title}</button>)}
               </div>
               <div className="card-surface p-6 lg:col-span-8" data-testid="lesson-content">
                 <h3 className="text-xl font-semibold">{l.title}</h3>
-                <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-300">{l.content}</p>
-                {l.article_id && <Link to={`/knowledge/${l.article_id}`} className="mt-4 inline-flex items-center gap-1 text-sm text-blue-300 hover:text-blue-200"><BookOpen className="h-4 w-4" />Open linked knowledge article</Link>}
+                <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-600">{l.content}</p>
+                {l.article_id && <Link to={`/knowledge/${l.article_id}`} className="mt-4 inline-flex items-center gap-1 text-sm text-[#1B3F94] hover:text-[#1B3F94]"><BookOpen className="h-4 w-4" />Open linked knowledge article</Link>}
               </div>
             </div>
           )}

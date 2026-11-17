@@ -25,7 +25,7 @@ function NavItem({ item }) {
       to={item.to}
       data-testid={`nav-${item.to.slice(1)}`}
       className={({ isActive }) =>
-        `flex shrink-0 items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors ${isActive ? "bg-blue-500/15 text-blue-300" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}
+        `flex shrink-0 items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors ${isActive ? "bg-[#1B3F94]/15 text-[#1B3F94]" : "text-slate-500 hover:bg-slate-100 hover:text-[#1B3F94]"}`}
     >
       <Icon className="h-4 w-4" /> {item.label}
     </NavLink>
@@ -36,10 +36,10 @@ export default function Layout() {
   const { me, isQA, isAdmin } = useMe();
   const groups = NAV.filter((g) => !g.admin || isAdmin).map((g) => ({ ...g, items: g.items.filter((i) => !i.qa || isQA) }));
   return (
-    <div className="flex min-h-screen bg-[#0B0E14]">
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-white/5 bg-[#0E121A] p-4 lg:flex">
+    <div className="flex min-h-screen bg-[#F4F6FB]">
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-slate-200 bg-white p-4 lg:flex">
         <div className="mb-8 px-2">
-          <div className="font-display text-xl font-extrabold tracking-tight">Cadence<span className="text-blue-400">CX</span></div>
+          <div className="font-display text-xl font-extrabold tracking-tight"><span className="text-[#1B3F94]">Cadence</span><span className="text-[#E31E24]">CX</span></div>
           <div className="label-mono mt-1">Quality × Knowledge</div>
         </div>
         <nav className="flex-1 space-y-6">
@@ -50,20 +50,20 @@ export default function Layout() {
             </div>
           ))}
         </nav>
-        <a href="/help" target="_blank" rel="noreferrer" data-testid="nav-self-service" className="flex items-center gap-2 px-3 py-2 text-xs text-slate-500 hover:text-white">
+        <a href="/help" target="_blank" rel="noreferrer" data-testid="nav-self-service" className="flex items-center gap-2 px-3 py-2 text-xs text-slate-500 hover:text-[#1B3F94]">
           <Globe className="h-3.5 w-3.5" /> Customer self-service portal
         </a>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex items-center justify-between gap-4 border-b border-white/5 bg-[#0B0E14]/80 px-4 py-3 backdrop-blur-xl sm:px-8">
-          <div className="font-display text-lg font-extrabold lg:hidden">Cadence<span className="text-blue-400">CX</span></div>
-          <div className="hidden text-sm text-slate-400 lg:block">Welcome back, <span className="text-white" data-testid="header-user-name">{me.name}</span></div>
+        <header className="sticky top-0 z-30 flex items-center justify-between gap-4 border-b border-slate-200 bg-[#F4F6FB]/80 px-4 py-3 backdrop-blur-xl sm:px-8">
+          <div className="font-display text-lg font-extrabold lg:hidden"><span className="text-[#1B3F94]">Cadence</span><span className="text-[#E31E24]">CX</span></div>
+          <div className="hidden text-sm text-slate-500 lg:block">Welcome back, <span className="text-slate-900" data-testid="header-user-name">{me.name}</span></div>
           <div className="flex items-center gap-3">
-            <span data-testid="header-role-badge" className="rounded-full border border-blue-500/30 bg-blue-500/10 px-2.5 py-0.5 font-mono text-[11px] uppercase tracking-wider text-blue-300">{ROLE_LABELS[me.role]}</span>
+            <span data-testid="header-role-badge" className="rounded-full border border-[#1B3F94]/30 bg-[#1B3F94]/10 px-2.5 py-0.5 font-mono text-[11px] uppercase tracking-wider text-[#1B3F94]">{ROLE_LABELS[me.role]}</span>
             <UserButton />
           </div>
         </header>
-        <nav className="flex gap-1 overflow-x-auto border-b border-white/5 px-3 py-2 lg:hidden">
+        <nav className="flex gap-1 overflow-x-auto border-b border-slate-200 px-3 py-2 lg:hidden">
           {groups.flatMap((g) => g.items).map((i) => <NavItem key={i.to} item={i} />)}
         </nav>
         <main className="flex-1 px-4 py-8 sm:px-8 lg:px-10"><Outlet /></main>

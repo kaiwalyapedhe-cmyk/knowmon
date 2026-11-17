@@ -17,7 +17,7 @@ const blank = { agent_id: "", agent_name: "", interaction_id: "", scheduled_for:
 function Picker({ label, items, selected, onToggle, testPrefix }) {
   return (
     <Field label={label}>
-      <div className="max-h-32 space-y-1.5 overflow-y-auto rounded-md border border-white/10 p-2">
+      <div className="max-h-32 space-y-1.5 overflow-y-auto rounded-md border border-slate-200 p-2">
         {items.map((x) => (
           <label key={x.id} className="flex items-center gap-2 text-sm"><Checkbox checked={selected.includes(x.id)} onCheckedChange={() => onToggle(x.id)} data-testid={`${testPrefix}-${x.id}`} />{x.title}</label>
         ))}
@@ -61,11 +61,11 @@ function SessionDialog({ initial, onClose, onSaved }) {
         <Field label="Action items">
           <div className="space-y-1.5">
             {f.action_items.map((a, i) => (
-              <div key={i} className="flex items-center justify-between rounded border border-white/10 px-3 py-1.5 text-sm"><span>{a.text}</span>
-                <button onClick={() => setF({ ...f, action_items: f.action_items.filter((_, j) => j !== i) })} data-testid={`coaching-item-remove-${i}`}><Trash2 className="h-3.5 w-3.5 text-slate-500 hover:text-white" /></button></div>
+              <div key={i} className="flex items-center justify-between rounded border border-slate-200 px-3 py-1.5 text-sm"><span>{a.text}</span>
+                <button onClick={() => setF({ ...f, action_items: f.action_items.filter((_, j) => j !== i) })} data-testid={`coaching-item-remove-${i}`}><Trash2 className="h-3.5 w-3.5 text-slate-500 hover:text-[#1B3F94]" /></button></div>
             ))}
             <div className="flex gap-2"><Input value={item} onChange={(e) => setItem(e.target.value)} placeholder="Add an action item" data-testid="coaching-item-input" />
-              <Button variant="outline" className="hover:text-white" data-testid="coaching-item-add-btn" onClick={() => { if (item.trim()) { setF({ ...f, action_items: [...f.action_items, { text: item.trim(), done: false }] }); setItem(""); } }}>Add</Button></div>
+              <Button variant="outline" className="hover:text-[#1B3F94]" data-testid="coaching-item-add-btn" onClick={() => { if (item.trim()) { setF({ ...f, action_items: [...f.action_items, { text: item.trim(), done: false }] }); setItem(""); } }}>Add</Button></div>
           </div>
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -88,23 +88,23 @@ function SessionCard({ s, isStaff, onEdit, onReload, titles }) {
         <div>
           <div className="label-mono mb-1">{s.status.replace("_", " ")} · coach {s.coach_name}</div>
           <h3 className="text-lg font-semibold">{s.agent_name} — {s.focus}</h3>
-          {s.scheduled_for && <div className="mt-1 flex items-center gap-1 text-xs text-slate-400"><Calendar className="h-3 w-3" />{fmtDate(s.scheduled_for)}</div>}
+          {s.scheduled_for && <div className="mt-1 flex items-center gap-1 text-xs text-slate-500"><Calendar className="h-3 w-3" />{fmtDate(s.scheduled_for)}</div>}
         </div>
-        <div className="text-right font-mono text-xs text-slate-400">{done}/{s.action_items.length} done</div>
+        <div className="text-right font-mono text-xs text-slate-500">{done}/{s.action_items.length} done</div>
       </div>
-      {s.notes && <p className="mt-3 whitespace-pre-wrap text-sm text-slate-300">{s.notes}</p>}
+      {s.notes && <p className="mt-3 whitespace-pre-wrap text-sm text-slate-600">{s.notes}</p>}
       <div className="mt-4 space-y-1.5">
         {s.action_items.map((a, i) => (
           <label key={i} className="flex items-center gap-2 text-sm"><Checkbox checked={a.done} onCheckedChange={(v) => toggle(i, !!v)} data-testid={`coaching-${s.id}-item-${i}`} /><span className={a.done ? "text-slate-500 line-through" : ""}>{a.text}</span></label>
         ))}
       </div>
       <div className="mt-4 flex flex-wrap gap-2 text-xs">
-        {s.article_ids.map((id) => <Link key={id} to={`/knowledge/${id}`} className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 px-2.5 py-1 text-blue-300 hover:text-blue-200"><BookOpen className="h-3 w-3" />{titles[id] || "Article"}</Link>)}
-        {s.course_ids.map((id) => <Link key={id} to={`/training/${id}`} className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-1 text-amber-300 hover:text-amber-200"><GraduationCap className="h-3 w-3" />{titles[id] || "Course"}</Link>)}
-        {s.interaction_id && <Link to={`/interactions/${s.interaction_id}`} className="rounded-full bg-white/5 px-2.5 py-1 text-slate-300 hover:text-white">Linked interaction →</Link>}
+        {s.article_ids.map((id) => <Link key={id} to={`/knowledge/${id}`} className="inline-flex items-center gap-1 rounded-full bg-[#1B3F94]/10 px-2.5 py-1 text-[#1B3F94] hover:text-[#1B3F94]"><BookOpen className="h-3 w-3" />{titles[id] || "Article"}</Link>)}
+        {s.course_ids.map((id) => <Link key={id} to={`/training/${id}`} className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-1 text-amber-700 hover:text-amber-800"><GraduationCap className="h-3 w-3" />{titles[id] || "Course"}</Link>)}
+        {s.interaction_id && <Link to={`/interactions/${s.interaction_id}`} className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-600 hover:text-[#1B3F94]">Linked interaction →</Link>}
       </div>
-      {isStaff && <div className="mt-4 flex gap-2"><Button size="sm" variant="outline" className="hover:text-white" onClick={() => onEdit(s)} data-testid={`coaching-edit-${s.id}`}>Edit</Button>
-        <Button size="sm" variant="ghost" className="hover:text-white" data-testid={`coaching-delete-${s.id}`} onClick={async () => { if (window.confirm("Delete session?")) { await api.delete(`/coaching/${s.id}`); onReload(); } }}>Delete</Button></div>}
+      {isStaff && <div className="mt-4 flex gap-2"><Button size="sm" variant="outline" className="hover:text-[#1B3F94]" onClick={() => onEdit(s)} data-testid={`coaching-edit-${s.id}`}>Edit</Button>
+        <Button size="sm" variant="ghost" className="hover:text-[#1B3F94]" data-testid={`coaching-delete-${s.id}`} onClick={async () => { if (window.confirm("Delete session?")) { await api.delete(`/coaching/${s.id}`); onReload(); } }}>Delete</Button></div>}
     </div>
   );
 }
@@ -126,7 +126,7 @@ export default function Coaching() {
     if (!from || !isStaff) return;
     api.get(`/interactions/${from}`).then(({ data: it }) => {
       setEditing({ ...blank, agent_id: it.agent_id, agent_name: it.agent_name, interaction_id: it.id,
-        focus: it.criteria_results?.filter((c) => !c.passed).map((c) => c.name).join(", ") || "Quality improvement",
+        focus: [...(it.criteria_results || [])].sort((a, b) => a.score - b.score).filter((c) => !c.passed).slice(0, 2).map((c) => c.name).join(" & ") || "Quality improvement",
         notes: it.summary || "", action_items: (it.improvements || []).map((t) => ({ text: t, done: false })), article_ids: it.recommended_article_ids || [] });
       setParams({}, { replace: true });
     });

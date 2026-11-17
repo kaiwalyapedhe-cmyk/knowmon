@@ -36,7 +36,7 @@ export default function Knowledge() {
           <div className="flex flex-wrap gap-1 lg:flex-col">
             {["", ...cats].map((c) => (
               <button key={c || "all"} onClick={() => setCat(c)} data-testid={`kb-category-${c || "all"}`}
-                className={`rounded-md px-3 py-2 text-left text-sm transition-colors ${cat === c ? "bg-blue-500/15 text-blue-300" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}>{c || "All articles"}</button>
+                className={`rounded-md px-3 py-2 text-left text-sm transition-colors ${cat === c ? "bg-[#1B3F94]/15 text-[#1B3F94]" : "text-slate-500 hover:bg-slate-100 hover:text-[#1B3F94]"}`}>{c || "All articles"}</button>
             ))}
           </div>
         </aside>
@@ -47,13 +47,13 @@ export default function Knowledge() {
             <div className="grid gap-4 md:grid-cols-2">
               {items.map((a) => (
                 <Link key={a.id} to={`/knowledge/${a.id}`} className="card-surface card-hover block p-6" data-testid={`article-card-${a.id}`}>
-                  <div className="label-mono mb-2 text-cyan-400">{a.category}</div>
+                  <div className="label-mono mb-2 text-[#E31E24]">{a.category}</div>
                   <h3 className="text-lg font-semibold">{a.title}</h3>
-                  <p className="mt-1 line-clamp-2 text-sm text-slate-400">{a.summary || a.content}</p>
+                  <p className="mt-1 line-clamp-2 text-sm text-slate-500">{a.summary || a.content}</p>
                   <div className="mt-4 flex gap-4 text-xs text-slate-500">
                     <span className="flex items-center gap-1"><Eye className="h-3 w-3" />{a.views}</span>
                     {a.steps?.length > 0 && <span className="flex items-center gap-1"><ListOrdered className="h-3 w-3" />{a.steps.length}-step guide</span>}
-                    {a.self_service && <span className="text-emerald-400">Self-service</span>}
+                    {a.self_service && <span className="text-emerald-600">Self-service</span>}
                   </div>
                 </Link>
               ))}

@@ -43,7 +43,7 @@ const AuthPage = ({ children }) => <div className="grid-bg flex min-h-screen ite
 
 function App() {
   return (
-    <div className="App dark">
+    <div className="App">
       <BrowserRouter>
         <ClerkAuthProvider>
           <Routes>
@@ -71,7 +71,7 @@ function App() {
           </Routes>
         </ClerkAuthProvider>
       </BrowserRouter>
-      <Toaster theme="dark" richColors position="top-right" />
+      <Toaster theme="light" richColors position="top-right" />
     </div>
   );
 }

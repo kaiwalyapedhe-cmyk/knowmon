@@ -28,22 +28,22 @@ export function AskAI({ path, getToken, linkBase, placeholder }) {
 
   return (
     <div className="card-surface relative overflow-hidden p-6" data-testid="ask-ai-panel">
-      <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-blue-500/10 blur-3xl" />
+      <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-[#1B3F94]/10 blur-3xl" />
       <form onSubmit={ask} className="relative flex flex-col gap-2 sm:flex-row">
         <div className="relative flex-1">
-          <Sparkles className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-blue-400" />
+          <Sparkles className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#1B3F94]" />
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={placeholder} className="h-11 pl-9" data-testid="ask-ai-input" />
         </div>
         <Button type="submit" className="h-11" disabled={busy} data-testid="ask-ai-search-button">{busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Ask AI"}</Button>
       </form>
       {(answer || busy || error) && (
-        <div className="relative mt-5 border-t border-white/5 pt-5">
-          {error && <p className="text-sm text-rose-400" data-testid="ask-ai-error">{error}</p>}
-          <div className="whitespace-pre-wrap text-sm leading-relaxed text-slate-200" data-testid="ask-ai-answer">{answer || (busy && "Thinking…")}</div>
+        <div className="relative mt-5 border-t border-slate-200 pt-5">
+          {error && <p className="text-sm text-red-600" data-testid="ask-ai-error">{error}</p>}
+          <div className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700" data-testid="ask-ai-answer">{answer || (busy && "Thinking…")}</div>
           {sources.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-2" data-testid="ask-ai-sources">
               <span className="label-mono self-center">Sources</span>
-              {sources.map((s) => <Link key={s.id} to={`${linkBase}/${s.id}`} className="rounded-full bg-blue-500/10 px-2.5 py-1 text-xs text-blue-300 hover:text-blue-200">{s.title}</Link>)}
+              {sources.map((s) => <Link key={s.id} to={`${linkBase}/${s.id}`} className="rounded-full bg-[#1B3F94]/10 px-2.5 py-1 text-xs text-[#1B3F94] hover:text-[#1B3F94]">{s.title}</Link>)}
             </div>
           )}
         </div>

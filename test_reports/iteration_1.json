@@ -1,0 +1,42 @@
+{
+  "summary": "First full E2E run of Cadence CX (backend + frontend). Backend: 21/21 pytest pass (auth 401, /api/me roles, agent 403 on users/people/qa-forms/kb/coaching/trees/courses, agent scoping on interactions+coaching, role-in-body ignored, demote-last-admin 409, users role PATCH on a TEST_ user, QA form CRUD, AutoQA text scoring (~15-25s with Claude), auto-fail -> overall 0, real audio upload (OpenAI TTS-generated mp3) -> whisper transcript -> scored, dashboard, KB search logging/top searches/category filter/article CRUD w/ steps, Ask AI SSE with sources, public KB excludes kb-disclosure, public ask SSE, decision tree CRUD + 400 on bad links/start, AI tree generation, course CRUD, AI quiz generation, quiz attempt score/review, answers hidden for agent, coaching CRUD + agent toggle own only). Frontend (Clerk ticket sign-in, admin + agent): dashboard KPIs/charts/leaderboard/top searches, Evaluate interaction (paste transcript) -> live status -> AUTO-FAIL detail with flags/rubric/summary/recommended KB links, Create coaching session from interaction (prefilled agent, focus, notes, 6 action items, recommended articles checked) + course assign + save + toggle item, Knowledge search/category/Ask AI streaming/article create with visual step image, tree runner (options/back/restart/copy script), tree editor create, AI tree generation from SOP, QA form create with weight+auto-fail and delete, Users & Roles table with role selects, course editor + AI quiz (5 q) + save, agent view (restricted nav, no staff buttons, /users shows 'Admins only', coaching toggle, quiz 100% pass, attempts table), public /help list/search/Ask AI/article view, kb-disclosure not found publicly, unauth /dashboard -> /sign-in. No functional bugs found; only minor/UX items.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/public/ask", "issue": "Uses the agent-facing ANSWER_SYSTEM prompt, so public customer answers are phrased for agents ('To help a customer who forgot their password... Verify identity: ask for...') and even says 'If you're a customer rather than an agent, contact support'. Use a customer-facing system prompt for the public endpoint."},
+      {"endpoint": "POST/PUT /api/courses", "issue": "QuizQ.answer_index not validated against options length (can save answer_index out of range -> unanswerable question)."},
+      {"endpoint": "GET /api/kb/articles/{id}", "issue": "Returns the doc before $inc so 'views' in response is stale by 1 (cosmetic)."},
+      {"endpoint": "POST /api/coaching", "issue": "agent_id not validated against users; a typo'd/unknown agent_id silently creates a session nobody can see as agent."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Agent Dashboard (no data)", "issues": ["Charts render as blank axes and KPIs show '0%' / '0/5' instead of an empty state or '—' when the agent has no scored interactions"]},
+      {"screen": "Coaching dialog", "issues": ["'Scheduled for' uses native browser datetime-local picker instead of shadcn Calendar/Popover", "Delete uses window.confirm instead of a shadcn AlertDialog (same on QA form/article delete)", "When created from an interaction where all criteria fail, Focus is prefilled with ALL criterion names concatenated (very long title); consider top 1-2 lowest-scoring"]},
+      {"screen": "Course editor", "issues": ["genQuiz uses stale closure setC({...c, quiz:[...c.quiz, ...r.data]}) — edits made while AI is generating (10-30s) are overwritten; use functional setState"]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_cadence_api.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Give /api/public/ask a customer-facing system prompt (speak to the customer, not the agent)",
+    "Use functional setState in Course.jsx genQuiz to avoid losing edits",
+    "Replace native datetime-local in Coaching dialog with shadcn date/time picker; consider AlertDialog for deletes",
+    "Add empty states on dashboard charts/KPIs when no data",
+    "Validate answer_index < len(options) in QuizQ"
+  ],
+  "critical_code_review_comments": [
+    "tests/make_test_users.py: email lookup was not URL-encoded ('+' became space) -> user not found -> POST /users 422 on every rerun. Fixed by urllib.parse.quote (test helper only).",
+    "server.py is 696 lines — near the 700-line limit; consider splitting routers (qa/interactions, kb, trees, training, coaching).",
+    "dashboard 'pending' count and kb_searches aggregation are not env-scoped (minor).",
+    "Background scoring tasks are in-memory (_tasks); a backend restart mid-scoring leaves interactions stuck in 'scoring' with no recovery/timeout — consider a startup sweep marking stale ones failed."
+  ],
+  "updated_files": ["/app/backend/tests/make_test_users.py", "/app/backend/tests/test_cadence_api.py"],
+  "success_rate": {"backend": "100% (21/21)", "frontend": "100% of tested flows"},
+  "test_credentials": "From /app/memory/test_credentials.md; tokens/tickets via `python tests/make_test_users.py --ticket` (tickets are single-use: regenerate before each browser session).",
+  "seed_data_creation": "None. All TEST_ records (interactions, forms, articles, trees, courses, coaching, one quiz attempt, temp TEST_user) deleted by id. kb_searches entries from test queries (e.g. 'refund', 'password', 'billing') remain in the log and appear in dashboard Top searches. Pre-existing 'Test Agent' interaction (not created by me) still exists.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run `cd /app/backend && python tests/make_test_users.py --ticket` then `pytest tests/test_cadence_api.py`. Audio test needs /tmp/test_call.mp3 (generate with OpenAITextToSpeech from emergentintegrations; skipped if absent). UI login: <url>/sign-in?__clerk_ticket=<ticket>; tickets single-use. Only one admin in preview env (demote test hits 409). AI scoring took ~15-25s."
+}

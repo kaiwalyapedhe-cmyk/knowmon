@@ -45,7 +45,7 @@ export default function Trees() {
     <div>
       <PageHeader eyebrow="Cognitive decision trees" title="Decision Trees" desc="Interactive SOP workflows that guide agents to the next best action, step by step.">
         {isStaff && <>
-          <Button variant="outline" className="hover:text-white" onClick={() => setGen(true)} data-testid="generate-tree-btn"><Sparkles className="mr-1 h-4 w-4" />Generate from SOP</Button>
+          <Button variant="outline" className="hover:text-[#1B3F94]" onClick={() => setGen(true)} data-testid="generate-tree-btn"><Sparkles className="mr-1 h-4 w-4" />Generate from SOP</Button>
           <Button onClick={() => nav("/trees/new/edit")} data-testid="new-tree-btn"><Plus className="mr-1 h-4 w-4" />New tree</Button>
         </>}
       </PageHeader>
@@ -53,13 +53,13 @@ export default function Trees() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {items.map((t) => (
             <div key={t.id} className="card-surface card-hover flex flex-col p-6" data-testid={`tree-card-${t.id}`}>
-              <GitBranch className="mb-4 h-5 w-5 text-violet-400" />
+              <GitBranch className="mb-4 h-5 w-5 text-[#E31E24]" />
               <h3 className="text-lg font-semibold">{t.title}</h3>
-              <p className="mt-1 flex-1 text-sm text-slate-400">{t.description}</p>
+              <p className="mt-1 flex-1 text-sm text-slate-500">{t.description}</p>
               <div className="mt-3 font-mono text-xs text-slate-500">{t.nodes.length} steps · {t.runs} runs</div>
               <div className="mt-4 flex gap-2">
                 <Link to={`/trees/${t.id}`} className="flex-1"><Button className="w-full" data-testid={`run-tree-${t.id}`}><Play className="mr-1 h-4 w-4" />Run</Button></Link>
-                {isStaff && <Link to={`/trees/${t.id}/edit`}><Button variant="outline" size="icon" className="hover:text-white" data-testid={`edit-tree-${t.id}`}><Pencil className="h-4 w-4" /></Button></Link>}
+                {isStaff && <Link to={`/trees/${t.id}/edit`}><Button variant="outline" size="icon" className="hover:text-[#1B3F94]" data-testid={`edit-tree-${t.id}`}><Pencil className="h-4 w-4" /></Button></Link>}
               </div>
             </div>
           ))}

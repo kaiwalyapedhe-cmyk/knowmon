@@ -1,12 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ClerkProvider } from "@clerk/react";
-import { dark } from "@clerk/ui/themes";
-
 const appearance = {
-  theme: dark,
-  variables: { colorPrimary: "#3B82F6", colorBackground: "#121721", fontFamily: "DM Sans, sans-serif", borderRadius: "0.5rem" },
-  captcha: { theme: "dark" },
+  variables: { colorPrimary: "#1B3F94", colorForeground: "#14306F", fontFamily: "Open Sans, sans-serif", borderRadius: "0.5rem" },
 };
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;

@@ -15,13 +15,13 @@ const CH = [{ value: "all", label: "All channels" }, { value: "voice", label: "V
 function CriterionRow({ c, i, onChange, onRemove }) {
   const set = (k, v) => onChange({ ...c, [k]: v });
   return (
-    <div className="grid gap-2 rounded-md border border-white/10 p-3 sm:grid-cols-12" data-testid={`criterion-row-${i}`}>
+    <div className="grid gap-2 rounded-md border border-slate-200 p-3 sm:grid-cols-12" data-testid={`criterion-row-${i}`}>
       <Input className="sm:col-span-3" placeholder="Criterion" value={c.name} onChange={(e) => set("name", e.target.value)} data-testid={`criterion-name-${i}`} />
       <Input className="sm:col-span-4" placeholder="What good looks like" value={c.description} onChange={(e) => set("description", e.target.value)} data-testid={`criterion-desc-${i}`} />
       <Input className="sm:col-span-1" type="number" min="0.5" step="0.5" value={c.weight} onChange={(e) => set("weight", Number(e.target.value))} data-testid={`criterion-weight-${i}`} />
       <NativeSelect className="sm:col-span-2" value={c.type} onChange={(v) => set("type", v)} testId={`criterion-type-${i}`} options={[{ value: "scale", label: "Scale 0-100" }, { value: "binary", label: "Pass / Fail" }]} />
-      <label className="flex items-center gap-2 text-xs text-rose-300 sm:col-span-1"><Switch checked={c.auto_fail} onCheckedChange={(v) => set("auto_fail", v)} data-testid={`criterion-autofail-${i}`} />Fail</label>
-      <Button variant="ghost" size="icon" className="sm:col-span-1 hover:text-white" onClick={onRemove} data-testid={`criterion-remove-${i}`}><Trash2 className="h-4 w-4" /></Button>
+      <label className="flex items-center gap-2 text-xs text-red-700 sm:col-span-1"><Switch checked={c.auto_fail} onCheckedChange={(v) => set("auto_fail", v)} data-testid={`criterion-autofail-${i}`} />Fail</label>
+      <Button variant="ghost" size="icon" className="sm:col-span-1 hover:text-[#1B3F94]" onClick={onRemove} data-testid={`criterion-remove-${i}`}><Trash2 className="h-4 w-4" /></Button>
     </div>
   );
 }
@@ -48,7 +48,7 @@ function FormEditor({ form, onClose, onSaved }) {
         <div className="label-mono mt-2">Criteria · weight · type · auto-fail</div>
         <div className="space-y-2">{f.criteria.map((c, i) => <CriterionRow key={i} c={c} i={i} onChange={(v) => setCrit(i, v)} onRemove={() => setF({ ...f, criteria: f.criteria.filter((_, j) => j !== i) })} />)}</div>
         <div className="flex justify-between">
-          <Button variant="outline" onClick={() => setF({ ...f, criteria: [...f.criteria, blankCrit()] })} data-testid="add-criterion-btn" className="hover:text-white"><Plus className="mr-1 h-4 w-4" />Add criterion</Button>
+          <Button variant="outline" onClick={() => setF({ ...f, criteria: [...f.criteria, blankCrit()] })} data-testid="add-criterion-btn" className="hover:text-[#1B3F94]"><Plus className="mr-1 h-4 w-4" />Add criterion</Button>
           <Button onClick={save} data-testid="qa-form-save-btn" disabled={!f.name || !f.criteria.length || f.criteria.some((c) => !c.name)}>Save form</Button>
         </div>
       </DialogContent>
@@ -64,7 +64,7 @@ export default function QAForms() {
   const load = useCallback(() => api.get("/qa-forms").then((r) => setForms(r.data)), [api]);
   useEffect(() => { load(); }, [load]);
   const remove = async (id) => { if (!window.confirm("Delete this QA form?")) return; await api.delete(`/qa-forms/${id}`); load(); };
-  if (!isQA) return <p className="text-slate-400">Only admins and QA auditors manage QA forms.</p>;
+  if (!isQA) return <p className="text-slate-500">Only admins and QA auditors manage QA forms.</p>;
   return (
     <div>
       <PageHeader eyebrow="Quality monitoring forms" title="QA Forms" desc="Rubrics the AI uses to score every interaction. Weighted criteria, pass/fail checks and auto-fail compliance triggers.">
@@ -74,15 +74,15 @@ export default function QAForms() {
         {forms.map((f) => (
           <div key={f.id} className="card-surface card-hover p-6" data-testid={`qa-form-card-${f.id}`}>
             <div className="flex items-start justify-between gap-4">
-              <div><h3 className="text-lg font-semibold">{f.name}</h3><p className="text-sm text-slate-400">{f.description}</p></div>
+              <div><h3 className="text-lg font-semibold">{f.name}</h3><p className="text-sm text-slate-500">{f.description}</p></div>
               <div className="flex gap-1">
-                <Button size="icon" variant="ghost" className="hover:text-white" onClick={() => setEditing(f)} data-testid={`edit-qa-form-${f.id}`}><Pencil className="h-4 w-4" /></Button>
-                <Button size="icon" variant="ghost" className="hover:text-white" onClick={() => remove(f.id)} data-testid={`delete-qa-form-${f.id}`}><Trash2 className="h-4 w-4" /></Button>
+                <Button size="icon" variant="ghost" className="hover:text-[#1B3F94]" onClick={() => setEditing(f)} data-testid={`edit-qa-form-${f.id}`}><Pencil className="h-4 w-4" /></Button>
+                <Button size="icon" variant="ghost" className="hover:text-[#1B3F94]" onClick={() => remove(f.id)} data-testid={`delete-qa-form-${f.id}`}><Trash2 className="h-4 w-4" /></Button>
               </div>
             </div>
             <ul className="mt-4 space-y-1.5 text-sm">
               {f.criteria.map((c) => (
-                <li key={c.id} className="flex justify-between border-t border-white/5 pt-1.5"><span>{c.name}{c.auto_fail && <span className="ml-2 font-mono text-[10px] text-rose-300">AUTO-FAIL</span>}</span><span className="font-mono text-xs text-slate-500">{c.type} · ×{c.weight}</span></li>
+                <li key={c.id} className="flex justify-between border-t border-slate-200 pt-1.5"><span>{c.name}{c.auto_fail && <span className="ml-2 font-mono text-[10px] text-red-700">AUTO-FAIL</span>}</span><span className="font-mono text-xs text-slate-500">{c.type} · ×{c.weight}</span></li>
               ))}
             </ul>
           </div>

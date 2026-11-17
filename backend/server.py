@@ -10,7 +10,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends, FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from pymongo import ASCENDING, DESCENDING, IndexModel
 from starlette.middleware.cors import CORSMiddleware
 
@@ -316,11 +316,11 @@ def _rank(q: str, arts: list, k: int = 4) -> list:
     return [a for s, a in sorted(scored, key=lambda x: -x[0]) if s > 0][:k]
 
 
-def _sse(question: str, arts: list):
+def _sse(question: str, arts: list, system: str = ai.ANSWER_SYSTEM):
     async def gen():
         yield f"data: {json.dumps({'type': 'sources', 'sources': [{'id': a['id'], 'title': a['title']} for a in arts]})}\n\n"
         try:
-            async for chunk in ai.stream_text(ai.ANSWER_SYSTEM, ai.answer_prompt(question, arts)):
+            async for chunk in ai.stream_text(system, ai.answer_prompt(question, arts)):
                 yield f"data: {json.dumps({'type': 'delta', 'text': chunk})}\n\n"
         except Exception as exc:
             logger.exception("ask failed")
@@ -356,7 +356,7 @@ async def categories(m: dict = Depends(current_member)):
 async def get_article(aid: str, m: dict = Depends(current_member)):
     doc = await get_or_404("articles", aid)
     await db.articles.update_one({"id": aid}, {"$inc": {"views": 1}})
-    return doc
+    return {**doc, "views": doc.get("views", 0) + 1}
 
 
 @api.post("/kb/articles")
@@ -408,7 +408,7 @@ async def public_article(aid: str):
 @api.post("/public/ask")
 async def public_ask(body: AskIn):
     arts = await db.articles.find({"self_service": True}, {"_id": 0}).to_list(500)
-    return _sse(body.question, _rank(body.question, arts))
+    return _sse(body.question, _rank(body.question, arts), ai.PUBLIC_SYSTEM)
 
 
 # ---------- Decision trees ----------
@@ -513,9 +513,15 @@ class Lesson(BaseModel):
 
 class QuizQ(BaseModel):
     question: str
-    options: List[str]
+    options: List[str] = Field(min_length=2)
     answer_index: int
     explanation: str = ""
+
+    @model_validator(mode="after")
+    def _check_answer(self):
+        if not 0 <= self.answer_index < len(self.options):
+            raise ValueError("answer_index must point to one of the options")
+        return self
 
 
 class CourseIn(BaseModel):
@@ -633,6 +639,11 @@ class ItemToggle(BaseModel):
     done: bool
 
 
+async def _check_agent(agent_id: str):
+    if agent_id and not await db.users.find_one({"user_id": agent_id, **IN_ENV}, {"_id": 1}):
+        raise HTTPException(status_code=400, detail="Unknown agent account")
+
+
 @api.get("/coaching")
 async def list_coaching(m: dict = Depends(current_member)):
     return await db.coaching.find(agent_scope(m), {"_id": 0}).sort("created_at", -1).to_list(500)
@@ -640,6 +651,7 @@ async def list_coaching(m: dict = Depends(current_member)):
 
 @api.post("/coaching")
 async def create_coaching(body: CoachingIn, m: dict = Depends(require_role(*STAFF))):
+    await _check_agent(body.agent_id)
     doc = {**body.model_dump(), "id": new_id(), "coach_id": m["user_id"], "coach_name": m.get("name", ""), "created_at": now()}
     await db.coaching.insert_one(dict(doc))
     return doc
@@ -648,6 +660,7 @@ async def create_coaching(body: CoachingIn, m: dict = Depends(require_role(*STAF
 @api.put("/coaching/{cid}")
 async def update_coaching(cid: str, body: CoachingIn, m: dict = Depends(require_role(*STAFF))):
     await get_or_404("coaching", cid)
+    await _check_agent(body.agent_id)
     await db.coaching.update_one({"id": cid}, {"$set": body.model_dump()})
     return await get_or_404("coaching", cid)
 

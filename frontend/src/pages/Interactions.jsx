@@ -69,9 +69,9 @@ function NewInteractionDialog({ open, onOpenChange, onCreated }) {
             <TabsTrigger value="text" data-testid="tab-paste-transcript">Paste transcript</TabsTrigger>
           </TabsList>
           <TabsContent value="audio">
-            <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-white/15 p-8 text-center text-sm text-slate-400 hover:border-blue-500/50">
+            <label className="flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 hover:border-[#1B3F94]/50">
               <input type="file" accept=".mp3,.mp4,.mpeg,.mpga,.m4a,.wav,.webm" className="hidden" data-testid="interaction-audio-input" onChange={(e) => setFile(e.target.files[0] || null)} />
-              {file ? <span className="text-white" data-testid="interaction-audio-name">{file.name}</span> : "Click to choose a call recording (mp3, wav, m4a, webm · max 25 MB)"}
+              {file ? <span className="text-slate-900" data-testid="interaction-audio-name">{file.name}</span> : "Click to choose a call recording (mp3, wav, m4a, webm · max 25 MB)"}
             </label>
           </TabsContent>
           <TabsContent value="text">
@@ -109,7 +109,7 @@ export default function Interactions() {
       <div className="mb-4 flex flex-wrap gap-2">
         {[{ value: "", label: "All" }, ...CHANNELS].map((c) => (
           <button key={c.value} data-testid={`filter-channel-${c.value || "all"}`} onClick={() => setChannel(c.value)}
-            className={`rounded-full border px-3 py-1 text-xs transition-colors ${channel === c.value ? "border-blue-500 bg-blue-500/15 text-blue-200" : "border-white/10 text-slate-400 hover:text-white"}`}>{c.label}</button>
+            className={`rounded-full border px-3 py-1 text-xs transition-colors ${channel === c.value ? "border-[#1B3F94] bg-[#1B3F94]/15 text-[#1B3F94]" : "border-slate-200 text-slate-500 hover:text-[#1B3F94]"}`}>{c.label}</button>
         ))}
       </div>
       {items === null ? <div className="label-mono">Loading…</div> : shown.length === 0 ? <Empty testId="interactions-empty" text="No interactions yet. Evaluate your first one." /> : (
@@ -118,17 +118,17 @@ export default function Interactions() {
             <thead><tr className="label-mono text-left"><th className="p-4">Agent</th><th className="p-4">Channel</th><th className="p-4">Intent</th><th className="p-4">Sentiment</th><th className="p-4">Flags</th><th className="p-4">Date</th><th className="p-4 text-right">Score</th></tr></thead>
             <tbody>
               {shown.map((i) => (
-                <tr key={i.id} className="border-t border-white/5 hover:bg-white/[.02]" data-testid={`interaction-row-${i.id}`}>
-                  <td className="p-4"><Link to={`/interactions/${i.id}`} className="font-medium hover:text-blue-300">{i.agent_name}</Link><div className="text-xs text-slate-500">{i.customer_name}</div></td>
+                <tr key={i.id} className="border-t border-slate-200 hover:bg-slate-50" data-testid={`interaction-row-${i.id}`}>
+                  <td className="p-4"><Link to={`/interactions/${i.id}`} className="font-medium hover:text-[#1B3F94]">{i.agent_name}</Link><div className="text-xs text-slate-500">{i.customer_name}</div></td>
                   <td className="p-4"><ChannelTag channel={i.channel} /></td>
-                  <td className="p-4 text-slate-300">{i.customer_intent || "—"}</td>
-                  <td className="p-4 capitalize text-slate-300">{i.sentiment || "—"}</td>
-                  <td className="p-4">{i.compliance_flags?.length ? <span className="text-rose-400">{i.compliance_flags.length}</span> : <span className="text-slate-600">0</span>}</td>
+                  <td className="p-4 text-slate-600">{i.customer_intent || "—"}</td>
+                  <td className="p-4 capitalize text-slate-600">{i.sentiment || "—"}</td>
+                  <td className="p-4">{i.compliance_flags?.length ? <span className="text-red-600">{i.compliance_flags.length}</span> : <span className="text-slate-600">0</span>}</td>
                   <td className="p-4 text-xs text-slate-500">{fmtDate(i.created_at)}</td>
                   <td className="p-4 text-right" data-testid={`interaction-status-${i.id}`}>
                     {i.status === "scored" ? <ScoreBadge score={i.overall_score} autoFailed={i.auto_failed} />
-                      : i.status === "failed" ? <span className="text-xs text-rose-400">Failed</span>
-                      : <span className="inline-flex items-center gap-1 text-xs text-amber-400"><Loader2 className="h-3 w-3 animate-spin" />{i.status}</span>}
+                      : i.status === "failed" ? <span className="text-xs text-red-600">Failed</span>
+                      : <span className="inline-flex items-center gap-1 text-xs text-amber-600"><Loader2 className="h-3 w-3 animate-spin" />{i.status}</span>}
                   </td>
                 </tr>
               ))}

@@ -26,10 +26,10 @@ export default function Training() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {courses.map((c) => (
             <Link key={c.id} to={`/training/${c.id}`} className="card-surface card-hover block p-6" data-testid={`course-card-${c.id}`}>
-              <GraduationCap className="mb-4 h-5 w-5 text-amber-400" />
+              <GraduationCap className="mb-4 h-5 w-5 text-amber-600" />
               <div className="label-mono mb-1">{c.category}</div>
               <h3 className="text-lg font-semibold">{c.title}</h3>
-              <p className="mt-1 line-clamp-2 text-sm text-slate-400">{c.description}</p>
+              <p className="mt-1 line-clamp-2 text-sm text-slate-500">{c.description}</p>
               <div className="mt-4 flex justify-between font-mono text-xs text-slate-500">
                 <span>{c.lessons.length} lessons · {c.quiz.length} questions</span>
                 {c.my_best != null && <span className={scoreColor(c.my_best)} data-testid={`course-best-${c.id}`}>best {c.my_best}%</span>}
@@ -45,8 +45,8 @@ export default function Training() {
           <tbody>
             {attempts.length === 0 && <tr><td colSpan={4} className="py-4 text-slate-500">No attempts yet.</td></tr>}
             {attempts.map((a) => (
-              <tr key={a.id} className="border-t border-white/5"><td className="py-2.5">{a.user_name}</td><td className="py-2.5 text-slate-300">{a.course_title}</td><td className="py-2.5 text-xs text-slate-500">{fmtDate(a.at)}</td>
-                <td className="py-2.5 text-right"><span className={`font-mono ${scoreColor(a.score)}`}>{a.score}%</span> {a.passed ? <span className="text-xs text-emerald-400">PASS</span> : <span className="text-xs text-rose-400">FAIL</span>}</td></tr>
+              <tr key={a.id} className="border-t border-slate-200"><td className="py-2.5">{a.user_name}</td><td className="py-2.5 text-slate-600">{a.course_title}</td><td className="py-2.5 text-xs text-slate-500">{fmtDate(a.at)}</td>
+                <td className="py-2.5 text-right"><span className={`font-mono ${scoreColor(a.score)}`}>{a.score}%</span> {a.passed ? <span className="text-xs text-emerald-600">PASS</span> : <span className="text-xs text-red-600">FAIL</span>}</td></tr>
             ))}
           </tbody>
         </table>

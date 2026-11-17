@@ -91,6 +91,12 @@ ANSWER_SYSTEM = ("You are a knowledge assistant for contact-centre agents. Answe
                  "If the articles don't cover it, say so plainly. Use plain text only: no markdown, no asterisks or # headings.")
 
 
+PUBLIC_SYSTEM = ("You are a friendly customer self-service assistant. Speak directly to the customer in second person, "
+                 "answer ONLY from the provided help articles, give simple numbered steps they can do themselves, and never "
+                 "mention internal agent procedures. If the articles don't cover it, suggest contacting support. "
+                 "Use plain text only: no markdown, no asterisks or # headings.")
+
+
 def answer_prompt(question: str, articles: list) -> str:
     docs = "\n\n".join(
         f"### {a['title']} ({a.get('category', '')})\n{a.get('content', '')}\n" +
