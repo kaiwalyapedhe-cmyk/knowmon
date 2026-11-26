@@ -1,18 +1,20 @@
 import axios from "axios";
-import { useMemo, useRef } from "react";
-import { useAuth } from "@clerk/react";
+import { createContext, useContext, useMemo, useRef } from "react";
 
-export const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const rawBackend = (process.env.REACT_APP_BACKEND_URL || "").trim().replace(/\/+$/, "");
+export const API = rawBackend ? `${rawBackend}/api` : "/api";
 
 const LDAP_KEY = "cadence_ldap_token";
 export const ldapToken = () => localStorage.getItem(LDAP_KEY);
 export const setLdapToken = (t) => (t ? localStorage.setItem(LDAP_KEY, t) : localStorage.removeItem(LDAP_KEY));
 
+export const ClerkTokenContext = createContext(null);
+
 export function useTokenGetter() {
-  const { getToken } = useAuth();
-  const ref = useRef(getToken);
-  ref.current = getToken;
-  return useMemo(() => async () => ldapToken() || (await ref.current()), []);
+  const clerkGetToken = useContext(ClerkTokenContext);
+  const ref = useRef(clerkGetToken);
+  ref.current = clerkGetToken;
+  return useMemo(() => async () => ldapToken() || (ref.current ? await ref.current() : null), []);
 }
 
 export function useApi() {

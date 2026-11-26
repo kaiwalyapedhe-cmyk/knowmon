@@ -47,8 +47,14 @@ ARTICLES = [
      "content": "Every inbound and outbound call must include: 'This call may be recorded for quality and training purposes.' within the first 30 seconds. Never read full card numbers aloud. Missing the disclosure is an automatic QA fail.",
      "steps": []},
 ]
+_today = datetime.now(timezone.utc)
 for a in ARTICLES:
-    a.update({"self_service": a["id"] != "kb-disclosure", "views": 0, "created_by": "system", "created_at": now(), "updated_at": now()})
+    a.update({"self_service": a["id"] != "kb-disclosure", "views": 0, "created_by": "system", "created_at": now(),
+              "updated_at": now(), "status": "published", "version": 1, "owner_id": "system", "owner_name": "System",
+              "reviewer_id": "", "reviewer_name": "", "approver_id": "system", "approver_name": "System",
+              "review_date": (_today + timedelta(days=90)).date().isoformat(),
+              "expires_at": (_today + timedelta(days=365)).date().isoformat(), "allowed_roles": [],
+              "published_at": now(), "archived_at": "", "helpful_count": 0, "not_helpful_count": 0})
 
 TREE = {
     "id": "tree-refund", "title": "Refund Request Handling", "description": "Guided flow for refund calls and chats", "category": "Refunds",
@@ -87,7 +93,7 @@ def _sample(idx, agent, channel, form, score, sentiment, csat, flags, summary, d
              "score": (0 if auto_failed and c["auto_fail"] and i == 1 else min(100, score + (i % 3) * 4 - 4)),
              "passed": not (auto_failed and c["auto_fail"] and i == 1), "reason": "Sample evaluation"} for i, c in enumerate(form_doc["criteria"])]
     return {"id": f"sample-{idx}", "channel": channel, "agent_id": "", "agent_name": agent, "customer_name": f"Customer {idx}",
-            "form_id": form, "form_name": form_doc["name"], "source": "sample", "status": "scored",
+            "form_id": form, "form_name": form_doc["name"], "form_version": 1, "source": "sample", "status": "scored",
             "transcript": "Agent: Thank you for calling, this call may be recorded. How can I help?\nCustomer: I want a refund for my order.\nAgent: Sure, let me verify your details first...",
             "criteria_results": crit, "overall_score": 0 if auto_failed else score, "auto_failed": auto_failed, "sentiment": sentiment,
             "sentiment_score": {"positive": 0.6, "neutral": 0, "negative": -0.5}[sentiment], "csat_predicted": csat,
@@ -107,9 +113,24 @@ SAMPLES = [
 
 async def seed():
     if await db.qa_forms.count_documents({}) == 0:
-        await db.qa_forms.insert_many([{**f, "created_by": "system", "created_at": now()} for f in (VOICE_FORM, CHAT_FORM)])
+        await db.qa_forms.insert_many([{**f, "version": 1, "created_by": "system", "created_at": now(), "updated_at": now()}
+                                      for f in (VOICE_FORM, CHAT_FORM)])
+    await db.qa_forms.update_many({"version": {"$exists": False}},
+                                  {"$set": {"version": 1, "updated_at": now()}})
+    if await db.qa_sampling_policies.count_documents({}) == 0:
+        await db.qa_sampling_policies.insert_one({
+            "id": "policy-monthly-coverage", "name": "Monthly agent coverage", "channel": "all", "form_id": "",
+            "period": "monthly", "target_per_agent": 4, "sample_percent": 20.0, "sla_days": 3,
+            "include_flagged": True, "include_auto_fail": True, "active": True,
+            "created_by": "system", "created_by_name": "System", "created_at": now()})
     if await db.articles.count_documents({}) == 0:
         await db.articles.insert_many([dict(a) for a in ARTICLES])
+    await db.articles.update_many({"status": {"$exists": False}}, {"$set": {
+        "status": "published", "version": 1, "owner_id": "system", "owner_name": "System", "reviewer_id": "",
+        "reviewer_name": "", "approver_id": "system", "approver_name": "System", "allowed_roles": [],
+        "published_at": now(), "archived_at": "", "helpful_count": 0, "not_helpful_count": 0,
+        "review_date": (_today + timedelta(days=90)).date().isoformat(),
+        "expires_at": (_today + timedelta(days=365)).date().isoformat()}})
     if await db.trees.count_documents({}) == 0:
         await db.trees.insert_one({**TREE, "created_at": now()})
     if await db.courses.count_documents({}) == 0:

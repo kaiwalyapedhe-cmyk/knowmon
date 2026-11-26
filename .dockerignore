@@ -1,0 +1,9 @@
+.git
+.gitignore
+.emergent
+.screenshots
+test_reports
+tests
+memory
+*.md
+*.log

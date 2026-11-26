@@ -15,6 +15,7 @@ from fastapi.responses import Response, StreamingResponse
 import openpyxl
 from pydantic import BaseModel, Field, model_validator
 from pymongo import ASCENDING, DESCENDING, IndexModel
+from starlette.concurrency import run_in_threadpool
 from starlette.middleware.cors import CORSMiddleware
 
 try:  # launched as `backend.server` (the default)
@@ -26,8 +27,13 @@ import ai
 import storage
 from digest import digest_router
 from ldap_auth import ldap_router
-from core import (IN_ENV, QA, RANK, RETIRED_ROLES, ROLES, STAFF, agent_scope, client, current_member, db,
+from integrations import integrations_router
+from qa_ops import form_changed, form_versions_router, qa_ops_router, record_score_change, snapshot_form
+from knowledge_gov import (article_audit, article_defaults, kb_gov_router, snapshot_article, visible_to)
+from auth_utils import hash_password, verify_password
+from core import (ENV, IN_ENV, QA, RANK, RETIRED_ROLES, ROLES, STAFF, agent_scope, client, current_member, db,
                   effective_role, new_id, now, require_role, spawn)
+from ldap_auth import ldap_authenticate
 from seed import seed
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -48,6 +54,18 @@ INDEXES = {
     "ldap_failures": [IndexModel([("username", ASCENDING), ("at", DESCENDING)], name="user_at")],
     "calibrations": [IndexModel([("id", ASCENDING)], name="id", unique=True)],
     "coaching": [IndexModel([("id", ASCENDING)], name="id", unique=True), IndexModel([("agent_id", ASCENDING)], name="agent_id")],
+    "qa_sampling_policies": [IndexModel([("id", ASCENDING)], name="id", unique=True)],
+    "qa_assignments": [IndexModel([("id", ASCENDING)], name="id", unique=True),
+                       IndexModel([("interaction_id", ASCENDING)], name="interaction_id"),
+                       IndexModel([("evaluator_id", ASCENDING), ("status", ASCENDING)], name="evaluator_status"),
+                       IndexModel([("assigned_at", DESCENDING)], name="assigned_desc")],
+    "qa_form_versions": [IndexModel([("id", ASCENDING)], name="id", unique=True),
+                         IndexModel([("form_id", ASCENDING), ("version", DESCENDING)], name="form_version")],
+    "article_versions": [IndexModel([("id", ASCENDING)], name="id", unique=True),
+                         IndexModel([("article_id", ASCENDING), ("version", DESCENDING)], name="article_version")],
+    "kb_feedback": [IndexModel([("article_id", ASCENDING), ("user_id", ASCENDING)], name="article_user")],
+    "kb_audit": [IndexModel([("article_id", ASCENDING), ("at", DESCENDING)], name="article_at")],
+    "score_audit": [IndexModel([("interaction_id", ASCENDING), ("at", ASCENDING)], name="interaction_at")],
 }
 
 app = FastAPI()
@@ -79,9 +97,154 @@ async def me(member: dict = Depends(current_member)):
 
 @api.get("/users")
 async def list_users(admin: dict = Depends(require_role("admin"))):
-    people = await db.users.find(IN_ENV, {"_id": 0}).to_list(1000)
-    return {"roles": [r for r in ROLES if RANK[r] <= RANK[admin["role"]]],
-            "users": [{**p, "role": effective_role(p.get("role"))} for p in people]}
+    people = await db.users.find(IN_ENV, {"_id": 0, "password_hash": 0}).to_list(1000)
+    return {
+        "roles": [r for r in ROLES if RANK[r] <= RANK[admin["role"]]],
+        "users": [
+            {
+                **p,
+                "role": effective_role(p.get("role")),
+                "has_password": bool(p.get("has_password") or p.get("password_hash")),
+                "disabled": bool(p.get("disabled", False)),
+            }
+            for p in people
+        ]
+    }
+
+
+class CreateUserIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    email: str = Field(min_length=3, max_length=120)
+    username: str | None = None
+    role: str = "agent"
+    password: str | None = None
+
+
+@api.post("/users")
+async def create_user(body: CreateUserIn, admin: dict = Depends(require_role("admin"))):
+    role = body.role.strip()
+    if role not in ROLES or RANK[role] > RANK[admin["role"]]:
+        raise HTTPException(status_code=403, detail="Invalid role specified")
+    
+    email = body.email.strip().lower()
+    username = (body.username or email.split("@")[0]).strip().lower()
+    
+    existing = await db.users.find_one({"$or": [{"email": email}, {"username": username}]})
+    if existing:
+        raise HTTPException(status_code=409, detail="A user with this email or username already exists")
+    
+    user_id = f"u_{new_id()}"
+    doc = {
+        "user_id": user_id,
+        "name": body.name.strip(),
+        "email": email,
+        "username": username,
+        "role": role,
+        "auth": "local",
+        "disabled": False,
+        "has_password": bool(body.password),
+        "env": ENV,
+        "created_at": now()
+    }
+    if body.password:
+        doc["password_hash"] = hash_password(body.password)
+    
+    await db.users.insert_one(doc)
+    doc.pop("_id", None)
+    doc.pop("password_hash", None)
+    return doc
+
+
+class ResetPasswordIn(BaseModel):
+    new_password: str = Field(min_length=4, max_length=128)
+
+
+@api.post("/users/{user_id}/reset-password")
+async def reset_password(user_id: str, body: ResetPasswordIn, admin: dict = Depends(require_role("admin"))):
+    target = await db.users.find_one({"user_id": user_id, **IN_ENV})
+    if target is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    pw_hash = hash_password(body.new_password)
+    await db.users.update_one(
+        {"user_id": user_id, **IN_ENV},
+        {"$set": {"password_hash": pw_hash, "has_password": True, "auth": target.get("auth") or "local"}}
+    )
+    target_key = (target.get("username") or target.get("email") or "").lower()
+    if target_key:
+        await db.ldap_failures.delete_many({"username": target_key})
+        
+    return {"ok": True, "message": f"Password for {target.get('name', 'user')} has been updated successfully."}
+
+
+class StatusIn(BaseModel):
+    disabled: bool
+
+
+@api.patch("/users/{user_id}/status")
+async def set_user_status(user_id: str, body: StatusIn, admin: dict = Depends(require_role("admin"))):
+    if user_id == admin["user_id"]:
+        raise HTTPException(status_code=400, detail="You cannot disable your own administrator account.")
+    
+    target = await db.users.find_one({"user_id": user_id, **IN_ENV})
+    if target is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if target.get("role") == "admin" and body.disabled:
+        admin_count = await db.users.count_documents({"role": "admin", "disabled": {"$ne": True}, **IN_ENV})
+        if admin_count <= 1:
+            raise HTTPException(status_code=409, detail="Cannot disable the last active administrator.")
+    
+    await db.users.update_one({"user_id": user_id, **IN_ENV}, {"$set": {"disabled": body.disabled}})
+    return {"user_id": user_id, "disabled": body.disabled}
+
+
+@api.delete("/users/{user_id}")
+async def delete_user(user_id: str, admin: dict = Depends(require_role("admin"))):
+    if user_id == admin["user_id"]:
+        raise HTTPException(status_code=400, detail="You cannot delete your own account.")
+    
+    target = await db.users.find_one({"user_id": user_id, **IN_ENV})
+    if target is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if target.get("role") == "admin":
+        admin_count = await db.users.count_documents({"role": "admin", **IN_ENV})
+        if admin_count <= 1:
+            raise HTTPException(status_code=409, detail="Cannot delete the last remaining administrator.")
+    
+    await db.users.delete_one({"user_id": user_id, **IN_ENV})
+    return {"ok": True, "message": f"User {target.get('name')} deleted successfully."}
+
+
+class ChangePasswordIn(BaseModel):
+    current_password: str | None = None
+    new_password: str = Field(min_length=4, max_length=128)
+
+
+@api.post("/users/me/password")
+async def change_my_password(body: ChangePasswordIn, member: dict = Depends(current_member)):
+    user_id = member["user_id"]
+    target = await db.users.find_one({"user_id": user_id})
+    if not target:
+        raise HTTPException(status_code=404, detail="User record not found")
+    
+    if target.get("password_hash"):
+        if not body.current_password or not verify_password(body.current_password, target["password_hash"]):
+            raise HTTPException(status_code=401, detail="Current password is incorrect")
+    elif target.get("auth") == "ldap" and (os.environ.get("LDAP_URL") and os.environ.get("LDAP_BASE_DN")):
+        if not body.current_password:
+            raise HTTPException(status_code=401, detail="Current password is required")
+        info = await run_in_threadpool(ldap_authenticate, target.get("username") or target.get("email") or "", body.current_password)
+        if info is None:
+            raise HTTPException(status_code=401, detail="Current password is incorrect")
+    
+    new_hash = hash_password(body.new_password)
+    await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {"password_hash": new_hash, "has_password": True}}
+    )
+    return {"ok": True, "message": "Password changed successfully."}
 
 
 class RoleIn(BaseModel):
@@ -98,7 +261,7 @@ async def set_role(user_id: str, body: RoleIn, admin: dict = Depends(require_rol
     if (effective_role(target.get("role")) == "admin" and body.role != "admin"
             and await db.users.count_documents({"role": "admin", **IN_ENV}) <= 1):
         raise HTTPException(status_code=409, detail="Keep at least one admin")
-    await db.users.update_one({"user_id": user_id}, {"$set": {"role": body.role}})
+    await db.users.update_one({"user_id": user_id, **IN_ENV}, {"$set": {"role": body.role}})
     return {"user_id": user_id, "role": body.role}
 
 
@@ -134,15 +297,24 @@ async def list_forms(m: dict = Depends(current_member)):
 async def create_form(body: FormIn, m: dict = Depends(require_role(*QA))):
     if not body.criteria:
         raise HTTPException(status_code=400, detail="Add at least one criterion")
-    doc = {**body.model_dump(), "id": new_id(), "created_by": m["user_id"], "created_at": now()}
+    doc = {**body.model_dump(), "id": new_id(), "version": 1, "created_by": m["user_id"],
+           "created_at": now(), "updated_at": now()}
     await db.qa_forms.insert_one(dict(doc))
+    await snapshot_form(doc, m, "Initial version")
     return doc
 
 
 @api.put("/qa-forms/{form_id}")
 async def update_form(form_id: str, body: FormIn, m: dict = Depends(require_role(*QA))):
-    await get_or_404("qa_forms", form_id)
-    await db.qa_forms.update_one({"id": form_id}, {"$set": body.model_dump()})
+    current = await get_or_404("qa_forms", form_id)
+    if not body.criteria:
+        raise HTTPException(status_code=400, detail="Add at least one criterion")
+    new = body.model_dump()
+    version = int(current.get("version") or 1)
+    if form_changed(current, new):
+        await snapshot_form(current, m, "Before edit")
+        version += 1
+    await db.qa_forms.update_one({"id": form_id}, {"$set": {**new, "version": version, "updated_at": now()}})
     return await get_or_404("qa_forms", form_id)
 
 
@@ -373,6 +545,8 @@ async def resolve_dispute(iid: str, body: ResolveIn, m: dict = Depends(require_r
         update.update({"overall_score": round(body.new_score, 1), "auto_failed": False, "dispute.new_score": round(body.new_score, 1),
                        "original_score": doc.get("original_score", doc["overall_score"])})
     await db.interactions.update_one({"id": iid}, {"$set": update})
+    if body.decision == "accepted":
+        await record_score_change(iid, doc["overall_score"], round(body.new_score, 1), "dispute", m, body.note.strip())
     return await get_or_404("interactions", iid, projection={"transcript": 0, "segments": 0})
 
 
@@ -562,9 +736,11 @@ async def close_calibration(cid: str, body: CalCloseIn, m: dict = Depends(requir
         auto_failed = any(c["auto_fail"] and got[c["id"]].score < 60 for c in cal["criteria"])
         results = [{**c, "score": got[c["id"]].score, "passed": got[c["id"]].score >= 60,
                     "reason": got[c["id"]].note or c.get("reason", "")} if c["id"] in got else c for c in it["criteria_results"]]
+        final_score = 0.0 if auto_failed else overall
         await db.interactions.update_one({"id": it["id"]}, {"$set": {
-            "criteria_results": results, "overall_score": 0.0 if auto_failed else overall, "auto_failed": auto_failed, "calibrated_by": cid,
+            "criteria_results": results, "overall_score": final_score, "auto_failed": auto_failed, "calibrated_by": cid,
             "original_score": it.get("original_score", it["overall_score"])}})
+        await record_score_change(it["id"], it["overall_score"], final_score, "calibration", m, final["note"])
     return _cal_view(await _get_cal(cid, m), m)
 
 
@@ -634,6 +810,10 @@ class ArticleIn(BaseModel):
     steps: List[Step] = []
     tags: List[str] = []
     self_service: bool = True
+    review_date: str = ""
+    expires_at: str = ""
+    allowed_roles: List[str] = []
+    review_note: str = ""
 
 
 def _rank(q: str, arts: list, k: int = 4) -> list:
@@ -672,10 +852,17 @@ def _article_query(q: str, category: str, extra: dict | None = None) -> dict:
 
 
 @api.get("/kb/articles")
-async def list_articles(q: str = "", category: str = "", m: dict = Depends(current_member)):
+async def list_articles(q: str = "", category: str = "", status: str = "", m: dict = Depends(current_member)):
     if q.strip():
         await db.kb_searches.insert_one({"q": q.strip().lower()[:100], "user_id": m["user_id"], "at": now()})
-    return await db.articles.find(_article_query(q.strip(), category), {"_id": 0}).sort("updated_at", -1).to_list(500)
+    query = _article_query(q.strip(), category)
+    if m["role"] in STAFF:
+        if status:
+            query["status"] = status
+    else:
+        query["status"] = "published"
+    docs = await db.articles.find(query, {"_id": 0}).sort("updated_at", -1).to_list(500)
+    return [d for d in docs if visible_to(d, m)]
 
 
 @api.get("/kb/categories")
@@ -686,21 +873,33 @@ async def categories(m: dict = Depends(current_member)):
 @api.get("/kb/articles/{aid}")
 async def get_article(aid: str, m: dict = Depends(current_member)):
     doc = await get_or_404("articles", aid)
+    if not visible_to(doc, m):
+        raise HTTPException(status_code=404, detail="Not found")
     await db.articles.update_one({"id": aid}, {"$inc": {"views": 1}})
     return {**doc, "views": doc.get("views", 0) + 1}
 
 
 @api.post("/kb/articles")
 async def create_article(body: ArticleIn, m: dict = Depends(require_role(*STAFF))):
-    doc = {**body.model_dump(), "id": new_id(), "views": 0, "created_by": m["user_id"], "created_at": now(), "updated_at": now()}
+    data = body.model_dump()
+    note = data.pop("review_note", "")
+    doc = {**article_defaults(m), **data, "id": new_id(), "views": 0, "created_by": m["user_id"],
+           "created_at": now(), "updated_at": now()}
     await db.articles.insert_one(dict(doc))
+    await snapshot_article(doc, m, note or "Created")
+    await article_audit(doc["id"], "created", m, note)
     return doc
 
 
 @api.put("/kb/articles/{aid}")
 async def update_article(aid: str, body: ArticleIn, m: dict = Depends(require_role(*STAFF))):
-    await get_or_404("articles", aid)
-    await db.articles.update_one({"id": aid}, {"$set": {**body.model_dump(), "updated_at": now()}})
+    current = await get_or_404("articles", aid)
+    data = body.model_dump()
+    note = data.pop("review_note", "")
+    version = int(current.get("version") or 1) + 1
+    await snapshot_article(current, m, note or "Before edit")
+    await db.articles.update_one({"id": aid}, {"$set": {**data, "version": version, "updated_at": now()}})
+    await article_audit(aid, "edited", m, note, version=version)
     return await get_or_404("articles", aid)
 
 
@@ -725,13 +924,13 @@ async def ask(body: AskIn, m: dict = Depends(current_member)):
 # Public self-service (website / chatbot / app widget)
 @api.get("/public/kb")
 async def public_articles(q: str = "", category: str = ""):
-    return await db.articles.find(_article_query(q.strip(), category, {"self_service": True}),
+    return await db.articles.find(_article_query(q.strip(), category, {"self_service": True, "status": "published"}),
                                   {"_id": 0, "created_by": 0}).to_list(200)
 
 
 @api.get("/public/kb/{aid}")
 async def public_article(aid: str):
-    doc = await get_or_404("articles", aid, {"self_service": True}, {"created_by": 0})
+    doc = await get_or_404("articles", aid, {"self_service": True, "status": "published"}, {"created_by": 0})
     await db.articles.update_one({"id": aid}, {"$inc": {"views": 1}})
     return doc
 
@@ -1013,8 +1212,12 @@ async def delete_coaching(cid: str, m: dict = Depends(require_role(*STAFF))):
 
 
 app.include_router(api)
+app.include_router(qa_ops_router)
+app.include_router(form_versions_router)
+app.include_router(kb_gov_router)
 app.include_router(digest_router)
 app.include_router(ldap_router)
+app.include_router(integrations_router)
 app.include_router(clerk_router)  # /api/clerk/config and /api/__clerk/*
 
 app.add_middleware(

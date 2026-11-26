@@ -20,8 +20,19 @@ try:
 except ModuleNotFoundError:
     from clerk_auth import require_user
 
-client = AsyncIOMotorClient(os.environ["MONGO_URL"])
-db = client[os.environ["DB_NAME"]]
+pg_url = os.environ.get("POSTGRES_URL") or os.environ.get("DATABASE_URL")
+if pg_url:
+    try:
+        from backend.postgres_db import PostgresDatabase, ReturnDocument
+    except ModuleNotFoundError:
+        from postgres_db import PostgresDatabase, ReturnDocument
+    client = None
+    db = PostgresDatabase(pg_url)
+else:
+    from motor.motor_asyncio import AsyncIOMotorClient
+    from pymongo import ReturnDocument
+    client = AsyncIOMotorClient(os.environ.get("MONGO_URL", "mongodb://127.0.0.1:27017"))
+    db = client[os.environ.get("DB_NAME", "knowmon")]
 
 # Highest first; keep `admin`.
 ROLES = ["admin", "qa_auditor", "team_lead", "agent"]

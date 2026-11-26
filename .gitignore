@@ -29,6 +29,11 @@ next-env.d.ts
 /build
 dist/
 dist
+target/
+backend-rs/target/
+!frontend/build/
+!.env.docker.example
+!backend/.env.example
 
 # Environment files (comprehensive coverage)
 

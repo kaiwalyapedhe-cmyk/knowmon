@@ -1,24 +1,31 @@
 import { NavLink, Outlet } from "react-router-dom";
 import { UserButton } from "@clerk/react";
-import { Scale, Users2, Settings as SettingsIcon, LogOut, BarChart3, BookOpen, GitBranch, GraduationCap, Headphones, ClipboardCheck, Users, MessageSquareHeart, Globe } from "lucide-react";
+import { Scale, Users2, Settings as SettingsIcon, LogOut, BarChart3, BookOpen, GitBranch, GraduationCap, Headphones, ClipboardCheck, Users, MessageSquareHeart, Globe, Sliders, Gauge, ShieldCheck } from "lucide-react";
 import { useMe, ROLE_LABELS } from "@/context/MeContext";
 import { setLdapToken } from "@/lib/api";
+import { useClerkConfig } from "@/components/auth/ClerkAuthProvider";
 
 const NAV = [
   { group: "Quality", items: [
     { to: "/dashboard", label: "Dashboard", icon: BarChart3 },
     { to: "/interactions", label: "Interactions", icon: Headphones },
     { to: "/qa-forms", label: "QA Forms", icon: ClipboardCheck, qa: true },
+    { to: "/qa-operations", label: "QA Operations", icon: Gauge, staff: true },
     { to: "/coaching", label: "Coaching", icon: MessageSquareHeart },
     { to: "/disputes", label: "Disputes", icon: Scale },
     { to: "/calibration", label: "Calibration", icon: Users2, staff: true },
   ]},
   { group: "Knowledge", items: [
     { to: "/knowledge", label: "Knowledge Hub", icon: BookOpen },
+    { to: "/knowledge/governance", label: "Governance", icon: ShieldCheck, staff: true },
     { to: "/trees", label: "Decision Trees", icon: GitBranch },
     { to: "/training", label: "Training", icon: GraduationCap },
   ]},
-  { group: "Admin", admin: true, items: [{ to: "/users", label: "Users & Roles", icon: Users }, { to: "/settings", label: "Digest & Directory", icon: SettingsIcon }] },
+  { group: "Admin", admin: true, items: [
+    { to: "/users", label: "Users & Roles", icon: Users },
+    { to: "/settings", label: "Digest & Directory", icon: SettingsIcon },
+    { to: "/integrations", label: "Integrations", icon: Sliders },
+  ] },
 ];
 
 function NavItem({ item }) {
@@ -36,6 +43,7 @@ function NavItem({ item }) {
 }
 
 export default function Layout() {
+  const clerk = useClerkConfig();
   const { me, isQA, isAdmin, isStaff } = useMe();
   const groups = NAV.filter((g) => !g.admin || isAdmin).map((g) => ({ ...g, items: g.items.filter((i) => (!i.qa || isQA) && (!i.staff || isStaff)) }));
   return (
@@ -63,7 +71,7 @@ export default function Layout() {
           <div className="hidden text-sm text-slate-500 lg:block">Welcome back, <span className="text-slate-900" data-testid="header-user-name">{me.name}</span></div>
           <div className="flex items-center gap-3">
             <span data-testid="header-role-badge" className="rounded-full border border-[#1B3F94]/30 bg-[#1B3F94]/10 px-2.5 py-0.5 font-mono text-[11px] uppercase tracking-wider text-[#1B3F94]">{ROLE_LABELS[me.role]}</span>
-            {me.auth === "ldap" ? (
+            {(me.auth === "ldap" || !clerk.enabled) ? (
               <button data-testid="ldap-sign-out-btn" title="Sign out" className="rounded-full p-2 text-slate-500 hover:bg-slate-100 hover:text-[#E31E24]"
                 onClick={() => { setLdapToken(null); window.location.href = "/"; }}><LogOut className="h-4 w-4" /></button>
             ) : <UserButton />}

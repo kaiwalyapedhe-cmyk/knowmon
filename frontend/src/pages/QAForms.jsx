@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Trash2, Pencil } from "lucide-react";
+import { Plus, Trash2, Pencil, History, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +23,37 @@ function CriterionRow({ c, i, onChange, onRemove }) {
       <label className="flex items-center gap-2 text-xs text-red-700 sm:col-span-1"><Switch checked={c.auto_fail} onCheckedChange={(v) => set("auto_fail", v)} data-testid={`criterion-autofail-${i}`} />Fail</label>
       <Button variant="ghost" size="icon" className="sm:col-span-1 hover:text-[#1B3F94]" onClick={onRemove} data-testid={`criterion-remove-${i}`}><Trash2 className="h-4 w-4" /></Button>
     </div>
+  );
+}
+
+function VersionHistory({ form, onClose, onRestored }) {
+  const api = useApi();
+  const [versions, setVersions] = useState(null);
+  useEffect(() => { api.get(`/qa-forms/${form.id}/versions`).then((r) => setVersions(r.data)).catch((e) => toast.error(errMsg(e))); }, [api, form.id]);
+  const restore = async (v) => {
+    if (!window.confirm(`Restore version ${v.version}? The current rubric stays in history.`)) return;
+    try { await api.post(`/qa-forms/${form.id}/versions/${v.id}/restore`); toast.success(`Restored version ${v.version}`); onRestored(); onClose(); }
+    catch (e) { toast.error(errMsg(e)); }
+  };
+  return (
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl" data-testid="qa-form-history">
+        <DialogHeader><DialogTitle>{form.name} · rubric history</DialogTitle></DialogHeader>
+        {versions === null ? <div className="label-mono">Loading…</div> : versions.length === 0 ? <p className="text-sm text-slate-500">No versions recorded yet.</p> : (
+          <ul className="space-y-2 text-sm">
+            {versions.map((v) => (
+              <li key={v.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-200 p-3">
+                <div>
+                  <div><span className="font-mono text-xs font-semibold text-[#1B3F94]">v{v.version}</span> · {v.name} <span className="font-mono text-[10px] text-slate-400">{v.criteria.length} criteria</span></div>
+                  <div className="text-xs text-slate-500">{v.change_note || "No note"} · {v.created_by_name || "—"}</div>
+                </div>
+                <Button size="sm" variant="ghost" className="hover:text-[#1B3F94]" onClick={() => restore(v)}><RotateCcw className="mr-1 h-3.5 w-3.5" />Restore</Button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -61,6 +92,7 @@ export default function QAForms() {
   const { isQA } = useMe();
   const [forms, setForms] = useState([]);
   const [editing, setEditing] = useState(null);
+  const [history, setHistory] = useState(null);
   const load = useCallback(() => api.get("/qa-forms").then((r) => setForms(r.data)), [api]);
   useEffect(() => { load(); }, [load]);
   const remove = async (id) => { if (!window.confirm("Delete this QA form?")) return; await api.delete(`/qa-forms/${id}`); load(); };
@@ -74,8 +106,9 @@ export default function QAForms() {
         {forms.map((f) => (
           <div key={f.id} className="card-surface card-hover p-6" data-testid={`qa-form-card-${f.id}`}>
             <div className="flex items-start justify-between gap-4">
-              <div><h3 className="text-lg font-semibold">{f.name}</h3><p className="text-sm text-slate-500">{f.description}</p></div>
+              <div><h3 className="text-lg font-semibold">{f.name}</h3><p className="text-sm text-slate-500">{f.description}</p><div className="label-mono mt-1">v{f.version || 1} · {f.criteria.length} criteria</div></div>
               <div className="flex gap-1">
+                <Button size="icon" variant="ghost" className="hover:text-[#1B3F94]" title="Rubric history" onClick={() => setHistory(f)} data-testid={`history-qa-form-${f.id}`}><History className="h-4 w-4" /></Button>
                 <Button size="icon" variant="ghost" className="hover:text-[#1B3F94]" onClick={() => setEditing(f)} data-testid={`edit-qa-form-${f.id}`}><Pencil className="h-4 w-4" /></Button>
                 <Button size="icon" variant="ghost" className="hover:text-[#1B3F94]" onClick={() => remove(f.id)} data-testid={`delete-qa-form-${f.id}`}><Trash2 className="h-4 w-4" /></Button>
               </div>
@@ -89,6 +122,7 @@ export default function QAForms() {
         ))}
       </div>
       {editing && <FormEditor form={editing} onClose={() => setEditing(null)} onSaved={load} />}
+      {history && <VersionHistory form={history} onClose={() => setHistory(null)} onRestored={load} />}
     </div>
   );
 }

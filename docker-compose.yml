@@ -1,0 +1,117 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: knowmon-postgres
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    environment:
+      - POSTGRES_DB=${DB_NAME:-knowmon}
+      - POSTGRES_USER=${POSTGRES_USER:-knowmon}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-knowmon}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - knowmon-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-knowmon} -d ${DB_NAME:-knowmon}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  mongodb:
+    image: mongo:6.0
+    container_name: knowmon-mongodb
+    restart: unless-stopped
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=${DB_NAME:-knowmon}
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - knowmon-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: knowmon-backend
+    restart: unless-stopped
+    ports:
+      - "${BACKEND_PORT:-8050}:8050"
+    environment:
+      - POSTGRES_URL=postgresql://${POSTGRES_USER:-knowmon}:${POSTGRES_PASSWORD:-knowmon}@postgres:5432/${DB_NAME:-knowmon}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-knowmon}:${POSTGRES_PASSWORD:-knowmon}@postgres:5432/${DB_NAME:-knowmon}
+      - MONGO_URL=mongodb://mongodb:27017
+      - DB_NAME=${DB_NAME:-knowmon}
+      - EMERGENT_LLM_KEY=${EMERGENT_LLM_KEY:-sk-local-dev-key}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@jswshakti.in}
+      - LDAP_JWT_SECRET=${LDAP_JWT_SECRET:-super-secret-ldap-jwt-key-for-local-dev-12345}
+      - CORS_ORIGINS=${CORS_ORIGINS:-*}
+      - PORT=8050
+      # Active Directory / LDAP Settings (can also be saved via UI)
+      - LDAP_URL=${LDAP_URL:-}
+      - LDAP_BASE_DN=${LDAP_BASE_DN:-}
+      - LDAP_BIND_DN=${LDAP_BIND_DN:-}
+      - LDAP_BIND_PASSWORD=${LDAP_BIND_PASSWORD:-}
+      - LDAP_USER_FILTER=${LDAP_USER_FILTER:-}
+      - LDAP_TEAM_LEAD_GROUP_DN=${LDAP_TEAM_LEAD_GROUP_DN:-}
+      # Email / SMTP Settings (can also be saved via UI)
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_SECURITY=${SMTP_SECURITY:-starttls}
+      - SMTP_USERNAME=${SMTP_USERNAME:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_FROM=${SMTP_FROM:-}
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - knowmon-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8050/api/auth/ldap/config"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - REACT_APP_BACKEND_URL=
+    container_name: knowmon-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-3001}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - knowmon-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  pgdata:
+    name: knowmon_pgdata
+  mongo_data:
+    name: knowmon_mongo_data
+
+networks:
+  knowmon-network:
+    name: knowmon-network
+    driver: bridge

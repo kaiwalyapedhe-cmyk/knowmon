@@ -1,7 +1,10 @@
+import logging
 import os
 
 import requests
 from starlette.concurrency import run_in_threadpool
+
+logger = logging.getLogger(__name__)
 
 STORAGE_BASE = (os.environ.get("INTEGRATION_PROXY_URL") or "").strip() or "https://integrations.emergentagent.com"
 STORAGE_URL = STORAGE_BASE.rstrip("/") + "/objstore/api/v1/storage"
@@ -13,9 +16,13 @@ def init_storage(force: bool = False) -> str:
     global _storage_key
     if _storage_key and not force:
         return _storage_key
-    resp = requests.post(f"{STORAGE_URL}/init", json={"emergent_key": os.environ["EMERGENT_LLM_KEY"]}, timeout=30)
-    resp.raise_for_status()
-    _storage_key = resp.json()["storage_key"]
+    try:
+        resp = requests.post(f"{STORAGE_URL}/init", json={"emergent_key": os.environ["EMERGENT_LLM_KEY"]}, timeout=3)
+        resp.raise_for_status()
+        _storage_key = resp.json()["storage_key"]
+    except Exception:
+        logger.exception("storage init failed; falling back to local_dev_storage_key")
+        _storage_key = "local_dev_storage_key"
     return _storage_key
 
 
