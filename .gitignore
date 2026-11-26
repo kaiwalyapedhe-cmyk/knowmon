@@ -100,3 +100,5 @@ frontend/node_modules/.cache/default-development/3.pack
 credentials.json
 *.key
 .credentials
+!backend/.env.example
+!.env.docker.example
