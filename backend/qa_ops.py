@@ -268,9 +268,11 @@ async def overview(period: str = "monthly", m: dict = Depends(require_role(*STAF
 
     workload = defaultdict(lambda: {"pending": 0, "in_progress": 0, "completed": 0, "overdue": 0, "name": ""})
     for a in live:
-        w = workload[a["evaluator_id"]]
-        w["name"] = a.get("evaluator_name", "")
-        w[a["status"]] = w.get(a["status"], 0) + 1
+        eval_id = a.get("evaluator_id") or "unassigned"
+        w = workload[eval_id]
+        w["name"] = a.get("evaluator_name") or eval_id
+        st = a.get("status") or "pending"
+        w[st] = w.get(st, 0) + 1
         w["overdue"] += 1 if sla_state(a) in ("overdue", "missed") else 0
     done = [a for a in live if a["status"] == "completed"]
     met = sum(1 for a in done if sla_state(a) == "met")

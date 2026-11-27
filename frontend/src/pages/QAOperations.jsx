@@ -79,7 +79,7 @@ export default function QAOperations() {
   const [editing, setEditing] = useState(null);
 
   const load = useCallback(() => {
-    api.get("/qa-ops/overview", { params: { period } }).then((r) => setOverview(r.data)).catch((e) => toast.error(errMsg(e)));
+    api.get("/qa-ops/overview", { params: { period } }).then((r) => setOverview(r.data)).catch(() => {});
     api.get("/qa-ops/assignments", { params: filter ? { status: filter } : {} }).then((r) => setAssignments(r.data)).catch(() => {});
     api.get("/qa-ops/policies").then((r) => setPolicies(r.data)).catch(() => {});
   }, [api, period, filter]);

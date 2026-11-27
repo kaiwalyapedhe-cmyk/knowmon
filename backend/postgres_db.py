@@ -397,8 +397,17 @@ class PostgresCollection:
     def find(self, flt: Optional[Dict[str, Any]] = None, projection: Optional[Dict[str, Any]] = None) -> PostgresCursor:
         return PostgresCursor(self, flt, projection)
 
-    async def find_one(self, flt: Optional[Dict[str, Any]] = None, projection: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
-        cursor = self.find(flt, projection).limit(1)
+    async def find_one(
+        self,
+        flt: Optional[Dict[str, Any]] = None,
+        projection: Optional[Dict[str, Any]] = None,
+        sort: Optional[Any] = None,
+        **kwargs: Any,
+    ) -> Optional[Dict[str, Any]]:
+        cursor = self.find(flt, projection)
+        if sort:
+            cursor = cursor.sort(sort)
+        cursor = cursor.limit(1)
         res = await cursor.to_list(1)
         return res[0] if res else None
 
@@ -628,9 +637,15 @@ class PostgresCollection:
                 if v is not None:
                     if isinstance(v, list):
                         for item in v:
-                            vals.add(item)
+                            try:
+                                vals.add(item)
+                            except TypeError:
+                                pass
                     else:
-                        vals.add(v)
+                        try:
+                            vals.add(v)
+                        except TypeError:
+                            pass
         return sorted(list(vals), key=lambda x: str(x))
 
     def aggregate(self, pipeline: List[Dict[str, Any]]) -> PostgresAggregationCursor:
