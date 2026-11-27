@@ -137,3 +137,25 @@ async def seed():
         await db.courses.insert_one({**COURSE, "created_at": now()})
     if await db.interactions.count_documents({}) == 0:
         await db.interactions.insert_many([dict(s) for s in SAMPLES])
+
+    try:
+        from auth_utils import hash_password
+    except ModuleNotFoundError:
+        from backend.auth_utils import hash_password
+
+    admin_emails = ["admin@jsw.in", "admin@jswshakti.in", "jsf0015@jswshakti.in", "kaiwalya.pedhe@jswshakti.in"]
+    default_pw_hash = hash_password("Lotus1@34")
+
+    for email in admin_emails:
+        u = await db.users.find_one({"email": email})
+        if not u:
+            await db.users.insert_one({
+                "user_id": f"u_{email.split('@')[0]}",
+                "name": email.split("@")[0].replace(".", " ").title(),
+                "email": email,
+                "role": "admin",
+                "password_hash": default_pw_hash,
+                "created_at": now(),
+            })
+        elif not u.get("password_hash"):
+            await db.users.update_one({"email": email}, {"$set": {"password_hash": default_pw_hash}})
