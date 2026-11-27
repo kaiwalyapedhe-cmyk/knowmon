@@ -26,6 +26,21 @@ CHAT_FORM = {
         {"id": "w-pii", "name": "Data Privacy", "description": "No sensitive data requested or exposed in writing", "weight": 1, "type": "binary", "auto_fail": True},
     ],
 }
+SM_FORM = {
+    "id": "PID0053_001",
+    "form_id": "PID0053_001",
+    "name": "SM FORM",
+    "process_name": "SM FORM",
+    "description": "Transmon WyzMindz rubric for order-related disputes, delivery feedback and escalation management",
+    "channel": "all",
+    "criteria": [
+        {"id": "q1-sop", "name": "Q1: SOP & Order Verification", "description": "Verification of order details, customer identity, ticket category and delivery timestamps", "weight": 2.0, "type": "scale", "auto_fail": False},
+        {"id": "q2-res", "name": "Q2: Resolution & Policy Adherence", "description": "Accurate refund/replacement processing as per SOP with valid claim checks", "weight": 2.5, "type": "scale", "auto_fail": False},
+        {"id": "q3-comm", "name": "Q3: Agent Empathy & Communication", "description": "Professional customer interactions, proper disposition, and clear timeline disclosures", "weight": 1.5, "type": "scale", "auto_fail": False},
+        {"id": "c-ztp", "name": "Zero Tolerance Policy (ZTP)", "description": "Zero tolerance for unverified refunds, fraudulent claims or intentional policy breaches", "weight": 3.0, "type": "binary", "auto_fail": True},
+        {"id": "c-fatal", "name": "Fatal Compliance Checklist", "description": "Mandatory security standards, PII protection and zero unauthorized actions", "weight": 3.0, "type": "binary", "auto_fail": True},
+    ],
+}
 
 ARTICLES = [
     {"id": "kb-refund", "title": "Refund Policy & Processing", "category": "Refunds", "tags": ["refund", "return", "money back"],
@@ -118,7 +133,17 @@ SAMPLES = [
 async def seed():
     if await db.qa_forms.count_documents({}) == 0:
         await db.qa_forms.insert_many([{**f, "version": 1, "created_by": "system", "created_at": now(), "updated_at": now()}
-                                      for f in (VOICE_FORM, CHAT_FORM)])
+                                      for f in (VOICE_FORM, CHAT_FORM, SM_FORM)])
+    else:
+        sm_exists = await db.qa_forms.find_one({"$or": [{"id": "PID0053_001"}, {"name": "SM FORM"}]})
+        if not sm_exists:
+            await db.qa_forms.insert_one({
+                **SM_FORM,
+                "version": 1,
+                "created_by": "system",
+                "created_at": now(),
+                "updated_at": now()
+            })
     await db.qa_forms.update_many({"version": {"$exists": False}},
                                   {"$set": {"version": 1, "updated_at": now()}})
     if await db.qa_sampling_policies.count_documents({}) == 0:

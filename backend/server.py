@@ -286,6 +286,8 @@ class FormIn(BaseModel):
     name: str
     description: str = ""
     channel: str = "all"
+    form_id: Optional[str] = None
+    process_name: Optional[str] = None
     criteria: List[Criterion]
 
 
@@ -298,7 +300,8 @@ async def list_forms(m: dict = Depends(current_member)):
 async def create_form(body: FormIn, m: dict = Depends(require_role(*QA))):
     if not body.criteria:
         raise HTTPException(status_code=400, detail="Add at least one criterion")
-    doc = {**body.model_dump(), "id": new_id(), "version": 1, "created_by": m["user_id"],
+    fid = (body.form_id or "").strip() or new_id()
+    doc = {**body.model_dump(), "id": fid, "form_id": fid, "version": 1, "created_by": m["user_id"],
            "created_at": now(), "updated_at": now()}
     await db.qa_forms.insert_one(dict(doc))
     await snapshot_form(doc, m, "Initial version")
