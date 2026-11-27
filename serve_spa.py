@@ -9,6 +9,9 @@ PORT = int(os.environ.get("PORT", 3005))
 BACKEND_URL = os.environ.get("BACKEND_URL", "http://127.0.0.1:8050")
 BUILD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend", "build")
 
+HOP_BY_HOP = {"hop-by-hop", "connection", "keep-alive", "proxy-authenticate", 
+              "proxy-authorization", "te", "trailers", "transfer-encoding", "upgrade", "content-length"}
+
 class SPAHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=BUILD_DIR, **kwargs)
@@ -25,22 +28,30 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
 
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:
+                resp_data = resp.read()
                 self.send_response(resp.status)
                 for k, v in resp.headers.items():
-                    self.send_header(k, v)
+                    if k.lower() not in HOP_BY_HOP:
+                        self.send_header(k, v)
+                self.send_header("Content-Length", str(len(resp_data)))
                 self.end_headers()
-                self.wfile.write(resp.read())
+                self.wfile.write(resp_data)
         except urllib.error.HTTPError as e:
+            err_data = e.read()
             self.send_response(e.code)
             for k, v in e.headers.items():
-                self.send_header(k, v)
+                if k.lower() not in HOP_BY_HOP:
+                    self.send_header(k, v)
+            self.send_header("Content-Length", str(len(err_data)))
             self.end_headers()
-            self.wfile.write(e.read())
+            self.wfile.write(err_data)
         except Exception as e:
+            msg = f'{{"error": "Backend unreachable: {str(e)}"}}\n'.encode("utf-8")
             self.send_response(502)
             self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(msg)))
             self.end_headers()
-            self.wfile.write(f'{{"error": "Backend unreachable: {str(e)}"}}'.encode("utf-8"))
+            self.wfile.write(msg)
 
     def do_GET(self):
         if self.path.startswith("/api/") or self.path == "/api":
@@ -75,6 +86,7 @@ class SPAHandler(http.server.SimpleHTTPRequestHandler):
             return self._proxy()
         self.send_response(200)
         self.send_header("Allow", "GET, POST, PUT, DELETE, PATCH, OPTIONS")
+        self.send_header("Content-Length", "0")
         self.end_headers()
 
 if not os.path.exists(BUILD_DIR):
@@ -83,5 +95,5 @@ if not os.path.exists(BUILD_DIR):
 
 socketserver.TCPServer.allow_reuse_address = True
 with socketserver.TCPServer(("", PORT), SPAHandler) as httpd:
-    print(f"Serving Knowmon SPA build on http://0.0.0.0:{PORT} (Proxying /api to {BACKEND_URL})")
+    print(f"Serving Knowmon SPA on http://0.0.0.0:{PORT} (Proxying /api to {BACKEND_URL})")
     httpd.serve_forever()
