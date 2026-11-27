@@ -135,18 +135,18 @@ export default function TransmonAutoSampling() {
 
   return (
     <div className="space-y-6">
-      {/* 1. SAMPLING PARAMETERS BOX - Replicating AutoSampling.aspx */}
-      <div className="rounded-xl border border-orange-200 bg-white shadow-sm overflow-hidden">
-        <div className="border-b border-orange-100 bg-gradient-to-r from-orange-50/60 to-white px-5 py-3.5 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-[#f97316]" />
-            <h2 className="text-base font-semibold text-slate-800">Sampling</h2>
+      {/* 1. SAMPLING PARAMETERS BOX - Styled with CadenceCX theme */}
+      <div className="card-surface overflow-hidden">
+        <div className="border-b border-slate-200 bg-slate-50/70 px-5 py-3.5 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <span className="h-2 w-2 rounded-full bg-[#1B3F94]" />
+            <h2 className="text-sm font-bold text-[#16357F] tracking-wide uppercase">Auto-Sampling Criteria</h2>
           </div>
-          <span className="text-xs text-slate-500 font-mono">WyzMindz AutoSampling Suite</span>
+          <span className="label-mono">Sampling Engine</span>
         </div>
 
-        <div className="p-6 space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="p-6 space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1.5">
                 Process Name
@@ -155,7 +155,7 @@ export default function TransmonAutoSampling() {
                 value={processName}
                 onChange={setProcessName}
                 options={processOptions}
-                className="bg-white border-slate-300"
+                className="bg-white border-slate-200 focus:ring-2 focus:ring-[#1B3F94]"
               />
             </div>
             <div>
@@ -168,12 +168,12 @@ export default function TransmonAutoSampling() {
                 max="500"
                 value={sampleCount}
                 onChange={(e) => setSampleCount(e.target.value)}
-                className="bg-white border-slate-300 h-9 text-sm"
+                className="bg-white border-slate-200 h-9 text-sm focus:ring-2 focus:ring-[#1B3F94]"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 items-end">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5 items-end">
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1.5">
                 From Date
@@ -183,7 +183,7 @@ export default function TransmonAutoSampling() {
                 value={fromDate}
                 onChange={(e) => setFromDate(e.target.value)}
                 placeholder="YYYY-MM-DD"
-                className="bg-white border-slate-300 h-9 text-sm"
+                className="bg-white border-slate-200 h-9 text-sm focus:ring-2 focus:ring-[#1B3F94]"
               />
             </div>
             <div>
@@ -195,7 +195,7 @@ export default function TransmonAutoSampling() {
                 value={toDate}
                 onChange={(e) => setToDate(e.target.value)}
                 placeholder="YYYY-MM-DD"
-                className="bg-white border-slate-300 h-9 text-sm"
+                className="bg-white border-slate-200 h-9 text-sm focus:ring-2 focus:ring-[#1B3F94]"
               />
             </div>
             <div className="flex items-center h-9">
@@ -204,9 +204,9 @@ export default function TransmonAutoSampling() {
                   type="checkbox"
                   checked={previousSampling}
                   onChange={(e) => setPreviousSampling(e.target.checked)}
-                  className="accent-[#ea580c] h-4 w-4 rounded"
+                  className="accent-[#1B3F94] h-4 w-4 rounded"
                 />
-                <span>Previous Sampling</span>
+                <span>Include Previous Sampling</span>
               </label>
             </div>
             <div>
@@ -217,12 +217,12 @@ export default function TransmonAutoSampling() {
                 value={auditType}
                 onChange={setAuditType}
                 options={auditTypeOptions}
-                className="bg-white border-slate-300"
+                className="bg-white border-slate-200 focus:ring-2 focus:ring-[#1B3F94]"
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5">
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1.5">
                 Select Year
@@ -231,7 +231,7 @@ export default function TransmonAutoSampling() {
                 value={year}
                 onChange={setYear}
                 options={yearOptions}
-                className="bg-white border-slate-300"
+                className="bg-white border-slate-200 focus:ring-2 focus:ring-[#1B3F94]"
               />
             </div>
             <div>
@@ -242,7 +242,7 @@ export default function TransmonAutoSampling() {
                 value={month}
                 onChange={setMonth}
                 options={monthOptions}
-                className="bg-white border-slate-300"
+                className="bg-white border-slate-200 focus:ring-2 focus:ring-[#1B3F94]"
               />
             </div>
             <div>
@@ -253,18 +253,18 @@ export default function TransmonAutoSampling() {
                 value={week}
                 onChange={setWeek}
                 options={weekOptions}
-                className="bg-white border-slate-300"
+                className="bg-white border-slate-200 focus:ring-2 focus:ring-[#1B3F94]"
               />
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1.5">
-                Sampling To
+                Sampling To (Auditor)
               </label>
               <NativeSelect
                 value={samplingTo}
                 onChange={setSamplingTo}
                 options={evaluatorOptions}
-                className="bg-white border-slate-300"
+                className="bg-white border-slate-200 focus:ring-2 focus:ring-[#1B3F94]"
               />
             </div>
           </div>
@@ -272,17 +272,17 @@ export default function TransmonAutoSampling() {
       </div>
 
       {/* 2. SAMPLING PLAN BOX */}
-      <div className="rounded-xl border border-orange-200 bg-white shadow-sm overflow-hidden">
-        <div className="border-b border-orange-100 bg-gradient-to-r from-orange-50/60 to-white px-5 py-3.5 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-[#f97316]" />
-            <h2 className="text-base font-semibold text-slate-800">Sampling Plan</h2>
+      <div className="card-surface overflow-hidden">
+        <div className="border-b border-slate-200 bg-slate-50/70 px-5 py-3.5 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <span className="h-2 w-2 rounded-full bg-[#1B3F94]" />
+            <h2 className="text-sm font-bold text-[#16357F] tracking-wide uppercase">Sampling Plan & Generation</h2>
           </div>
           <Button
             size="sm"
             variant="ghost"
             onClick={loadInitial}
-            className="text-slate-500 hover:text-slate-800 h-8"
+            className="text-slate-500 hover:text-[#1B3F94] h-8"
           >
             <RefreshCw className="h-3.5 w-3.5" />
           </Button>
@@ -294,7 +294,7 @@ export default function TransmonAutoSampling() {
               <Button
                 onClick={handleGenerateSampling}
                 disabled={generating}
-                className="bg-[#ea580c] hover:bg-[#c2410c] text-white font-medium px-5"
+                className="bg-[#1B3F94] hover:bg-[#153275] text-white font-medium px-5 shadow-sm"
               >
                 {generating ? <RefreshCw className="mr-1.5 h-4 w-4 animate-spin" /> : <Play className="mr-1.5 h-4 w-4" />}
                 Generate Sampling
@@ -302,63 +302,63 @@ export default function TransmonAutoSampling() {
               <Button
                 onClick={handleSaveSampling}
                 disabled={saving || !generatedPlan}
-                className="bg-[#ea580c] hover:bg-[#c2410c] text-white font-medium px-5 disabled:opacity-50"
+                className="bg-[#E31E24] hover:bg-[#c41419] text-white font-medium px-5 shadow-sm disabled:opacity-50"
               >
                 {saving ? <RefreshCw className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}
-                Save
+                Save Sampling Batch
               </Button>
             </div>
 
             <div className="text-xs font-medium text-slate-600">
-              Count of Sampling Generated: <strong className="text-[#ea580c] font-mono text-sm">{generatedPlan ? generatedPlan.actual_generated : 0}</strong>
+              Count of Sampling Generated: <strong className="text-[#1B3F94] font-mono text-base">{generatedPlan ? generatedPlan.actual_generated : 0}</strong>
             </div>
           </div>
 
           {/* Generated Plan Details & Sample list */}
           {generatedPlan && (
-            <div className="mt-4 rounded-lg border border-orange-200 bg-orange-50/30 p-4 space-y-3">
-              <div className="flex items-center justify-between text-xs">
+            <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50/50 p-4 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                 <div>
-                  <span className="font-semibold text-slate-800">Generated Batch:</span>{" "}
-                  <span className="font-mono text-[#ea580c]">{generatedPlan.id}</span> ·{" "}
+                  <span className="font-semibold text-slate-700">Generated Batch:</span>{" "}
+                  <span className="font-mono text-[#1B3F94] font-bold">{generatedPlan.id}</span> ·{" "}
                   <span>{generatedPlan.process_name}</span> ({generatedPlan.week}, {generatedPlan.month} {generatedPlan.year})
                 </div>
                 <div>
-                  <span className="font-semibold text-slate-800">Assigned To:</span>{" "}
-                  <span className="text-slate-700">{generatedPlan.sampling_to}</span>
+                  <span className="font-semibold text-slate-700">Assigned To:</span>{" "}
+                  <span className="text-slate-900 font-medium">{generatedPlan.sampling_to}</span>
                 </div>
               </div>
 
               {generatedPlan.samples?.length > 0 && (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto rounded border border-slate-200 bg-white">
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="bg-orange-100/60 text-slate-700 font-semibold text-left">
-                        <th className="p-2">Audit ID</th>
-                        <th className="p-2">Agent Name</th>
-                        <th className="p-2">Order ID</th>
-                        <th className="p-2">City</th>
-                        <th className="p-2 text-right">Score</th>
-                        <th className="p-2">Fatal</th>
-                        <th className="p-2">Category</th>
+                      <tr className="bg-slate-50 text-slate-600 font-bold uppercase tracking-wider text-[11px] text-left border-b border-slate-200">
+                        <th className="p-2.5">Audit ID</th>
+                        <th className="p-2.5">Agent Name</th>
+                        <th className="p-2.5">Order ID</th>
+                        <th className="p-2.5">City</th>
+                        <th className="p-2.5 text-right">Score</th>
+                        <th className="p-2.5">Fatal</th>
+                        <th className="p-2.5">Category</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-orange-100 bg-white">
+                    <tbody className="divide-y divide-slate-100">
                       {generatedPlan.samples.map((s, idx) => (
-                        <tr key={s["Audit Id"] || idx} className="hover:bg-slate-50">
-                          <td className="p-2 font-mono font-medium text-slate-900">{s["Audit Id"]}</td>
-                          <td className="p-2 text-slate-800">{s["Agentname"]}</td>
-                          <td className="p-2 font-mono text-[#ea580c]">{s["Order Id"]}</td>
-                          <td className="p-2 text-slate-600">{s["City Name"]}</td>
-                          <td className="p-2 text-right font-mono font-semibold">{s["Audit Score"]}%</td>
-                          <td className="p-2">
+                        <tr key={s["Audit Id"] || idx} className="hover:bg-slate-50/80">
+                          <td className="p-2.5 font-mono font-medium text-slate-900">{s["Audit Id"]}</td>
+                          <td className="p-2.5 text-slate-800">{s["Agentname"]}</td>
+                          <td className="p-2.5 font-mono text-[#1B3F94] font-semibold">{s["Order Id"]}</td>
+                          <td className="p-2.5 text-slate-600">{s["City Name"]}</td>
+                          <td className="p-2.5 text-right font-mono font-semibold">{s["Audit Score"]}%</td>
+                          <td className="p-2.5">
                             {s["Fatal Status"] === "Yes" ? (
                               <span className="text-red-600 font-bold">Yes</span>
                             ) : (
                               <span className="text-slate-400">No</span>
                             )}
                           </td>
-                          <td className="p-2 text-slate-600">{s["Issue Category"]}</td>
+                          <td className="p-2.5 text-slate-600">{s["Issue Category"]}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -371,13 +371,13 @@ export default function TransmonAutoSampling() {
       </div>
 
       {/* 3. SAMPLING PROCESS BOX - History Log */}
-      <div className="rounded-xl border border-orange-200 bg-white shadow-sm overflow-hidden">
-        <div className="border-b border-orange-100 bg-gradient-to-r from-orange-50/60 to-white px-5 py-3.5 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-[#f97316]" />
-            <h2 className="text-base font-semibold text-slate-800">Sampling Process</h2>
+      <div className="card-surface overflow-hidden">
+        <div className="border-b border-slate-200 bg-slate-50/70 px-5 py-3.5 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <span className="h-2 w-2 rounded-full bg-[#1B3F94]" />
+            <h2 className="text-sm font-bold text-[#16357F] tracking-wide uppercase">Sampling Process Batches</h2>
           </div>
-          <span className="text-xs text-slate-500">{processesList.length} total batches</span>
+          <span className="text-xs text-slate-500 font-mono">{processesList.length} total batches</span>
         </div>
 
         <div className="overflow-x-auto">
@@ -388,7 +388,7 @@ export default function TransmonAutoSampling() {
           ) : (
             <table className="w-full text-xs min-w-[700px]">
               <thead>
-                <tr className="bg-slate-100/80 border-b border-slate-200 text-slate-700 font-semibold text-left">
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px] text-left">
                   <th className="p-3">Process ID</th>
                   <th className="p-3">Process Name</th>
                   <th className="p-3 text-right">Samples</th>
@@ -404,14 +404,14 @@ export default function TransmonAutoSampling() {
                   <tr key={proc.id} className="hover:bg-slate-50/80">
                     <td className="p-3 font-mono font-medium text-slate-900">{proc.id}</td>
                     <td className="p-3 text-slate-800 font-medium">{proc.process_name}</td>
-                    <td className="p-3 text-right font-mono font-semibold text-[#ea580c]">
+                    <td className="p-3 text-right font-mono font-semibold text-[#1B3F94]">
                       {proc.actual_generated || proc.sample_count}
                     </td>
                     <td className="p-3 text-slate-700">{proc.sampling_to}</td>
                     <td className="p-3 text-slate-600">{proc.week}, {proc.month} {proc.year}</td>
                     <td className="p-3 text-slate-500 font-mono text-[11px]">{proc.from_date} ~ {proc.to_date}</td>
                     <td className="p-3">
-                      <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded text-[10px] font-semibold">
+                      <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded text-[10px] font-semibold">
                         <CheckCircle2 className="h-3 w-3" /> {proc.status || "Saved"}
                       </span>
                     </td>
@@ -421,7 +421,7 @@ export default function TransmonAutoSampling() {
                           size="icon"
                           variant="ghost"
                           onClick={() => setSelectedPlanDetail(proc)}
-                          className="h-7 w-7 text-slate-600 hover:text-[#ea580c]"
+                          className="h-7 w-7 text-slate-600 hover:text-[#1B3F94]"
                           title="View Sampled IDs"
                         >
                           <Eye className="h-3.5 w-3.5" />
@@ -449,13 +449,14 @@ export default function TransmonAutoSampling() {
       {selectedPlanDetail && (
         <Dialog open onOpenChange={() => setSelectedPlanDetail(null)}>
           <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
-            <DialogHeader>
-              <DialogTitle className="text-base font-bold text-slate-900">
-                Sampling Batch {selectedPlanDetail.id}
+            <DialogHeader className="border-b border-slate-200 pb-3">
+              <div className="label-mono">Sampling Batch Details</div>
+              <DialogTitle className="text-base font-bold text-[#16357F] mt-1">
+                Batch {selectedPlanDetail.id} · {selectedPlanDetail.process_name}
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 text-xs pt-2">
-              <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border">
+              <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
                 <div><strong>Process:</strong> {selectedPlanDetail.process_name}</div>
                 <div><strong>Auditor:</strong> {selectedPlanDetail.sampling_to}</div>
                 <div><strong>Audit Type:</strong> {selectedPlanDetail.audit_type}</div>
@@ -466,16 +467,16 @@ export default function TransmonAutoSampling() {
 
               <div>
                 <h4 className="font-semibold text-slate-800 mb-2">Sampled Audit IDs ({selectedPlanDetail.sample_ids?.length || 0})</h4>
-                <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto p-2 border rounded bg-white">
+                <div className="flex flex-wrap gap-1.5 max-h-48 overflow-y-auto p-2 border border-slate-200 rounded bg-white">
                   {(selectedPlanDetail.sample_ids || []).map((sid) => (
-                    <span key={sid} className="bg-slate-100 text-slate-700 font-mono text-[11px] px-2 py-0.5 rounded border">
+                    <span key={sid} className="bg-slate-100 text-slate-700 font-mono text-[11px] px-2 py-0.5 rounded border border-slate-200">
                       {sid}
                     </span>
                   ))}
                 </div>
               </div>
 
-              <div className="flex justify-end pt-2">
+              <div className="flex justify-end pt-2 border-t border-slate-200">
                 <Button variant="outline" size="sm" onClick={() => setSelectedPlanDetail(null)}>
                   Close
                 </Button>
