@@ -1,6 +1,10 @@
+import logging
+import os
 from datetime import datetime, timedelta, timezone
 
 from core import db, now
+
+logger = logging.getLogger(__name__)
 
 VOICE_FORM = {
     "id": "form-voice", "name": "Standard Voice QA", "description": "Default rubric for inbound support calls", "channel": "voice",
@@ -159,3 +163,48 @@ async def seed():
             })
         elif not u.get("password_hash"):
             await db.users.update_one({"email": email}, {"$set": {"password_hash": default_pw_hash}})
+
+    # Seed Transmon audit records
+    if await db.transmon_audits.count_documents({}) == 0:
+        csv_path = os.path.join(os.path.dirname(__file__), "transmon_sample.csv")
+        if os.path.exists(csv_path):
+            import csv
+            try:
+                from transmon_router import _parse_row
+            except ImportError:
+                from backend.transmon_router import _parse_row
+            with open(csv_path, "r", encoding="utf-8-sig") as f:
+                reader = csv.DictReader(f)
+                transmon_docs = [_parse_row(row) for row in reader if any(v.strip() for v in row.values() if v)]
+                if transmon_docs:
+                    await db.transmon_audits.insert_many(transmon_docs)
+                    logger.info("Seeded %d Transmon audit records into col_transmon_audits.", len(transmon_docs))
+
+    # Seed initial sampling process matching AutoSampling.aspx
+    if await db.transmon_sampling.count_documents({}) == 0:
+        await db.transmon_sampling.insert_one({
+            "id": "samp-seed001",
+            "process_name": "SM FORM",
+            "sample_count": 10,
+            "actual_generated": 10,
+            "from_date": "2026-11-01",
+            "to_date": "2026-11-26",
+            "previous_sampling": True,
+            "audit_type": "Normal",
+            "year": "2026",
+            "month": "November",
+            "week": "Week 4",
+            "sampling_to": "cd-himanshu.pathak@zepto.com",
+            "status": "Saved",
+            "sample_ids": [
+                "PID0053_001-17033", "PID0053_001-17035", "PID0053_001-17038", "PID0053_001-17061",
+                "PID0053_001-17062", "PID0053_001-17063", "PID0053_001-17078", "PID0053_001-17068",
+                "PID0053_001-17069", "PID0053_001-17070"
+            ],
+            "created_by": "system",
+            "created_by_name": "System",
+            "saved_by": "system",
+            "saved_by_name": "System",
+            "saved_at": now(),
+            "created_at": now()
+        })

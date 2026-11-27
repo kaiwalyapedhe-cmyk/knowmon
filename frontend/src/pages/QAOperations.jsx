@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useApi, errMsg } from "@/lib/api";
 import { useMe } from "@/context/MeContext";
 import { Empty, Field, NativeSelect, PageHeader, fmtDate } from "@/components/common";
+import TransmonAuditReport from "@/components/TransmonAuditReport";
+import TransmonAutoSampling from "@/components/TransmonAutoSampling";
 
 const PERIODS = [{ value: "monthly", label: "This month" }, { value: "weekly", label: "Last 7 days" }, { value: "daily", label: "Last 24 hours" }];
 const CHANNELS = [{ value: "all", label: "All channels" }, { value: "voice", label: "Voice" }, { value: "chat", label: "Chat" }, { value: "email", label: "Email" }, { value: "whatsapp", label: "WhatsApp" }, { value: "in_store", label: "In-store" }];
@@ -111,12 +113,22 @@ export default function QAOperations() {
         {isQA && active && <Button onClick={() => sample(active.id)} data-testid="run-sampling-btn"><Play className="mr-1 h-4 w-4" />Run “{active.name}”</Button>}
       </PageHeader>
 
-      <Tabs defaultValue="coverage">
-        <TabsList className="grid w-full grid-cols-3 sm:w-auto sm:grid-cols-3">
+      <Tabs defaultValue="audit-report">
+        <TabsList className="grid w-full grid-cols-2 sm:w-auto sm:grid-cols-5">
+          <TabsTrigger value="audit-report">Audit Report</TabsTrigger>
+          <TabsTrigger value="auto-sampling">Auto Sampling</TabsTrigger>
           <TabsTrigger value="coverage">Coverage</TabsTrigger>
           <TabsTrigger value="queue">Queue</TabsTrigger>
           <TabsTrigger value="policies">Policies</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="audit-report" className="mt-6">
+          <TransmonAuditReport />
+        </TabsContent>
+
+        <TabsContent value="auto-sampling" className="mt-6">
+          <TransmonAutoSampling />
+        </TabsContent>
 
         <TabsContent value="coverage" className="mt-6 space-y-6">
           <div className="flex flex-wrap items-center gap-3">

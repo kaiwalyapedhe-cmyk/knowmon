@@ -29,6 +29,7 @@ from digest import digest_router
 from ldap_auth import ldap_router
 from integrations import integrations_router
 from qa_ops import form_changed, form_versions_router, qa_ops_router, record_score_change, snapshot_form
+from transmon_router import transmon_router
 from knowledge_gov import (article_audit, article_defaults, kb_gov_router, snapshot_article, visible_to)
 from auth_utils import hash_password, verify_password
 from core import (ENV, IN_ENV, QA, RANK, RETIRED_ROLES, ROLES, STAFF, agent_scope, client, current_member, db,
@@ -1213,6 +1214,7 @@ async def delete_coaching(cid: str, m: dict = Depends(require_role(*STAFF))):
 
 app.include_router(api)
 app.include_router(qa_ops_router)
+app.include_router(transmon_router)
 app.include_router(form_versions_router)
 app.include_router(kb_gov_router)
 app.include_router(digest_router)
