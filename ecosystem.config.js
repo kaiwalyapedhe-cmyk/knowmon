@@ -35,7 +35,7 @@ module.exports = {
       interpreter: pythonPath,
       restart_delay: 2000,
       env: {
-        PORT: 3001,
+        PORT: 3005,
       },
     },
   ],
