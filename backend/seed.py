@@ -31,7 +31,7 @@ SM_FORM = {
     "form_id": "PID0053_001",
     "name": "SM FORM",
     "process_name": "SM FORM",
-    "description": "Transmon WyzMindz rubric for order-related disputes, delivery feedback and escalation management",
+    "description": "CadenceCX rubric for order-related disputes, delivery feedback and escalation management",
     "channel": "all",
     "criteria": [
         {"id": "q1-sop", "name": "Q1: SOP & Order Verification", "description": "Verification of order details, customer identity, ticket category and delivery timestamps", "weight": 2.0, "type": "scale", "auto_fail": False},
@@ -204,6 +204,10 @@ async def seed():
                 if transmon_docs:
                     await db.transmon_audits.insert_many(transmon_docs)
                     logger.info("Seeded %d Transmon audit records into col_transmon_audits.", len(transmon_docs))
+    else:
+        # Backfill CadenceCX Id on existing records if missing
+        async for doc in db.transmon_audits.find({"CadenceCX Id": {"$exists": False}}, {"_id": 1, "Audit Id": 1, "Transmon Id": 1}):
+            await db.transmon_audits.update_one({"_id": doc["_id"]}, {"$set": {"CadenceCX Id": doc.get("Transmon Id", "")}})
 
     # Seed initial sampling process matching AutoSampling.aspx
     if await db.transmon_sampling.count_documents({}) == 0:

@@ -109,7 +109,7 @@ export default function QAOperations() {
   const active = overview?.policy;
   return (
     <div>
-      <PageHeader eyebrow="QA operations" title="QA Operations & Audit Reports" desc="Run full Transmon audit reports, configure auto-sampling batches, manage coverage, and review evaluator queue.">
+      <PageHeader eyebrow="QA operations" title="QA Operations & Audit Reports" desc="Run comprehensive audit reports, configure auto-sampling batches, manage coverage, and review evaluator queue.">
         {isQA && active && <Button onClick={() => sample(active.id)} data-testid="run-sampling-btn" className="bg-[#1B3F94] hover:bg-[#153275] text-white"><Play className="mr-1 h-4 w-4" />Run “{active.name}”</Button>}
       </PageHeader>
 

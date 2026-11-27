@@ -22,6 +22,7 @@ import { NativeSelect, Empty, scoreColor } from "@/components/common";
 
 const SEARCH_FIELDS = [
   { value: "id", label: "Audit ID / ID" },
+  { value: "CadenceCX Id", label: "CadenceCX ID" },
   { value: "Agentid", label: "Agent ID" },
   { value: "Agentname", label: "Agent Name" },
   { value: "Order Id", label: "Order ID" },
@@ -193,7 +194,7 @@ export default function TransmonAuditReport() {
               className="border-slate-200 text-xs text-slate-700 hover:text-[#1B3F94] hover:border-[#1B3F94]/40 hover:bg-[#1B3F94]/5"
             >
               <Upload className="mr-1.5 h-3.5 w-3.5 text-[#1B3F94]" />
-              {uploading ? "Importing..." : "Upload Transmon File (.xls/.csv)"}
+              {uploading ? "Importing..." : "Upload Audit File (.xls/.csv)"}
             </Button>
           </div>
         </div>
@@ -363,7 +364,7 @@ export default function TransmonAuditReport() {
         <div className="overflow-x-auto">
           {data.items?.length === 0 ? (
             <div className="p-12 text-center text-sm text-slate-500">
-              No audit records found. Click <strong>Generate</strong> or upload a Transmon export file.
+              No audit records found. Click <strong>Generate</strong> or upload an audit report file (.xls/.csv).
             </div>
           ) : (
             <table className="w-full min-w-[1600px] text-xs">
@@ -376,7 +377,7 @@ export default function TransmonAuditReport() {
                   <th className="py-2.5 px-3 whitespace-nowrap text-right">Scorable Value</th>
                   <th className="py-2.5 px-3 whitespace-nowrap text-right">Scoring Value</th>
                   <th className="py-2.5 px-3 whitespace-nowrap">Emp Code</th>
-                  <th className="py-2.5 px-3 whitespace-nowrap">Transmon Id</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap">CadenceCX Id</th>
                   <th className="py-2.5 px-3 whitespace-nowrap">Agentid</th>
                   <th className="py-2.5 px-3 whitespace-nowrap">Agentname</th>
                   <th className="py-2.5 px-3 whitespace-nowrap">Escalation Date</th>
@@ -443,7 +444,7 @@ export default function TransmonAuditReport() {
                         {row["Emp Code"] || "-"}
                       </td>
                       <td className="py-2 px-3 font-mono text-slate-600 whitespace-nowrap">
-                        {row["Transmon Id"] || "—"}
+                        {row["CadenceCX Id"] || row["Transmon Id"] || "—"}
                       </td>
                       <td className="py-2 px-3 font-mono text-slate-600 max-w-[140px] truncate" title={row["Agentid"]}>
                         {row["Agentid"] || "—"}
@@ -549,7 +550,7 @@ export default function TransmonAuditReport() {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="rounded bg-slate-100 px-2.5 py-1 font-mono text-xs font-semibold text-slate-700 border border-slate-200">
-                    Transmon ID: {selectedAudit["Transmon Id"] || "—"}
+                    CadenceCX ID: {selectedAudit["CadenceCX Id"] || selectedAudit["Transmon Id"] || "—"}
                   </span>
                   <span className={`rounded px-2.5 py-1 font-mono text-xs font-bold ${Number(selectedAudit["Audit Score"] || 0) >= 85 ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
                     Score: {selectedAudit["Audit Score"] || 0}%
@@ -569,6 +570,7 @@ export default function TransmonAuditReport() {
               <TabsContent value="overview" className="space-y-4 pt-4 text-xs">
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   <DetailItem label="Audit ID" value={selectedAudit["Audit Id"]} mono />
+                  <DetailItem label="CadenceCX ID" value={selectedAudit["CadenceCX Id"] || selectedAudit["Transmon Id"]} mono />
                   <DetailItem label="Form ID" value={selectedAudit["Form Id"]} mono />
                   <DetailItem label="Order ID" value={selectedAudit["Order Id"]} mono highlight />
                   <DetailItem label="Agent Name" value={selectedAudit["Agentname"]} />

@@ -59,6 +59,11 @@ def _parse_row(row_dict: Dict[str, Any]) -> Dict[str, Any]:
     cleaned["escalation_date"] = cleaned.get("Escalation Date") or cleaned.get("escalation_date") or ""
     cleaned["created_date"] = cleaned.get("Createdon Date") or cleaned.get("created_date") or ""
 
+    cadence_id = cleaned.get("CadenceCX Id") or cleaned.get("Transmon Id") or cleaned.get("cadencecx_id") or ""
+    cleaned["CadenceCX Id"] = cadence_id
+    cleaned["Transmon Id"] = cadence_id
+    cleaned["cadencecx_id"] = cadence_id
+
     try:
         cleaned["audit_score"] = float(cleaned.get("Audit Score") or cleaned.get("audit_score") or 0.0)
     except (ValueError, TypeError):
@@ -144,6 +149,8 @@ async def list_transmon_audits(
         field_map = {
             "id": ["Audit Id", "id"],
             "Audit Id": ["Audit Id"],
+            "CadenceCX Id": ["CadenceCX Id", "Transmon Id"],
+            "Transmon Id": ["CadenceCX Id", "Transmon Id"],
             "Agentid": ["Agentid"],
             "Agentname": ["Agentname"],
             "Order Id": ["Order Id"],

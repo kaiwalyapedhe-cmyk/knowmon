@@ -334,7 +334,7 @@ export default function QAForms() {
       <PageHeader
         eyebrow="Quality Rubrics & Monitoring"
         title="QA Forms"
-        desc="Define and manage evaluation rubrics used to score interactions and Transmon audits. Configure weighted criteria, pass/fail thresholds, and zero-tolerance compliance triggers."
+        desc="Define and manage evaluation rubrics used to score interactions and CadenceCX audits. Configure weighted criteria, pass/fail thresholds, and zero-tolerance compliance triggers."
       >
         <Button
           data-testid="new-qa-form-btn"
@@ -395,7 +395,7 @@ export default function QAForms() {
                       </span>
                       {isTransmonSM && (
                         <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                          Transmon Zepto
+                          CadenceCX / SM FORM
                         </span>
                       )}
                     </div>
